@@ -9,9 +9,6 @@ What’s included
 - `.github/` — prompts and chatmode templates used by local tools.
 - `requirements.txt` — test/development dependencies.
 
-Excluded files
-- `ollama-ministral-3-image-explainer.py` and `ollana.py` are intentionally excluded from version control; they are independent image-explainer examples.
-
 How to run
 1. Create & activate a virtual environment, then install dependencies:
 
