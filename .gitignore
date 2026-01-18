@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+venv/
+
+# Editor/IDE settings
+.vscode/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Exclude the image explainer script (independent file)
+ollama-ministral-3-image-explainer.py
+ollana.py
