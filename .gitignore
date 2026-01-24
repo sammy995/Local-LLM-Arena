@@ -2,18 +2,68 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 
 # Virtual environment
 .venv/
 venv/
+env/
+ENV/
 
-# Editor/IDE settings
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE settings
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
 # OS files
 Thumbs.db
 .DS_Store
+*.log
 
-# Exclude the image explainer script (independent file)
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Exclude specific independent files
 ollama-ministral-3-image-explainer.py
 ollana.py
+
+# Development documentation (keep in local only)
+BUG_FIXES.md
+REFACTOR_SUMMARY.md
+
+# Temporary files
+*.tmp
+*.bak
+*.swp

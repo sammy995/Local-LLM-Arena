@@ -1,2 +1,12 @@
-flask
-ollama
+# Core dependencies
+flask>=2.0.0,<3.0.0
+ollama>=0.1.0
+
+# Production server (optional, recommended for production)
+gunicorn>=20.1.0; platform_system != "Windows"
+
+# Environment management
+python-dotenv>=0.19.0
+
+# Utilities
+werkzeug>=2.0.0
