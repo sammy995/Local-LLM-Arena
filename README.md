@@ -1,337 +1,390 @@
-# Ollama Arena - Multi-Model LLM Comparison Platform
+# Ollama Arena — Local Multi-Model AI Comparison Platform
 
-An open-source web application for comparing multiple large language models side-by-side using local Ollama instances. Test and compare open-source models locally without sending data to external APIs.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)](https://flask.palletsprojects.com/)
-
-**Created by:** Shubham Lagad
-
-## 🎯 Why This Project?
-
-Test and compare local LLM models without sending data to external APIs. Perfect for:
-
-- **Privacy-focused users** - All processing happens on your machine
-- **Researchers** - Compare model performance objectively
-- **Developers** - Test prompts across multiple models
-- **AI Enthusiasts** - Experiment with open-source models safely
-
-*This project uses [Ollama](https://ollama.ai) (© Ollama, Inc.) as the local LLM runtime. Ollama is a separate project and all trademarks are property of their respective owners.*
-
-## ✨ Features
-
-### **🏟️ Arena Mode**
-- **Multi-Model Comparison** - Compare up to 5 models simultaneously side-by-side
-- **Real-time Streaming** - Token-by-token generation with live metrics
-- **Performance Metrics** - Tokens/sec, response time, token count for each model
-- **Model Switching** - Continue conversation with a single selected model mid-chat
-
-### **💬 Response Management**
-- **Copy Responses** - One-click copy to clipboard on every response
-- **Regenerate Answers** - Re-run the same prompt to get different responses
-- **Voting System** - Rate responses with 👍/👎 to track model performance
-- **Response Actions** - All responses (single or arena) have action buttons
-
-### **📦 Model Manager**
-- **60+ Models** - Browse and download popular Ollama models in-app
-- **Search & Filter** - Find models by name, size, or capability
-- **One-Click Download** - Install models directly from the UI
-- **Model Deletion** - Remove unused models to save space
-- **Live Model List** - See all installed models with status
-
-### **📚 Productivity Tools**
-- **Prompt Library** - Pre-built prompts for common tasks (coding, summarization, etc.)
-- **Custom Prompts** - Save your own prompts for reuse
-- **System Prompts** - Customize AI behavior per conversation
-- **File Attachments** - Upload multiple files (text, code, images)
-- **Collapsible File List** - Compact view to maximize chat space
-- **Persistent Files** - Files stay attached until manually removed
-
-### **🎨 User Experience**
-- **Dark/Light Mode** - Full theme support with smooth transitions
-- **Keyboard Shortcuts** - Ctrl+Enter (send), Ctrl+N (new chat), Ctrl+K (focus), Esc (cancel)
-- **Session Management** - Multiple conversations with auto-naming
-- **Export Conversations** - Save your chat history
-- **Custom Confirmations** - Beautiful modal dialogs (no browser popups)
-- **5-Minute Timeout** - Extended timeout for multiple model requests
+A privacy-first, local-only web application for side-by-side evaluation of multiple AI models via Ollama, with persistent conversation state and exportable results.
 
 ---
 
-## 🚀 Getting Started
+## 🎯 Problem Statement
 
-Choose your setup method based on your needs:
+### Privacy and Compliance Constraints in AI Evaluation
 
-### Option 1: Simple Setup (For Users)
+Organizations and individuals in regulated industries (healthcare, finance, legal, government) face significant barriers when evaluating AI models:
 
-**Just want to try local models? Start here!**
+- **Data Sensitivity**: Sending proprietary or sensitive data to cloud-based comparison platforms (ChatGPT Arena, LMSys) violates privacy policies and compliance requirements (GDPR, HIPAA, SOX)
+- **API Key Risk**: Cloud tools require API keys, creating security exposure and audit complexity
+- **No Control Over Data**: Once data leaves local systems, there's no guarantee of deletion, non-training use, or compliance with data residency laws
+- **Vendor Lock-in**: Cloud platforms control access, pricing, and model availability
 
-This is the quickest way to get started - perfect if you just want to test and compare LLMs locally.
+### Limitations of Cloud-Based Comparison Tools
 
-#### Prerequisites
-- Install [Ollama](https://ollama.ai)
-- Python 3.8+ installed
+Existing solutions like ChatGPT Arena and LMSys are excellent for public benchmarking, but fail for:
 
-#### Steps
+- **Private datasets**: Cannot evaluate models on proprietary or confidential information
+- **Offline environments**: Require internet connectivity and external dependencies
+- **Reproducibility**: No control over model versions, parameters, or state persistence
+- **Cost**: API usage fees accumulate quickly during evaluation campaigns
+- **Auditability**: No local logs or exportable artifacts for compliance reporting
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/sammy995/ollama-local-chatbot.git
-cd ollama-local-chatbot
+**Ollama Arena solves this** by bringing multi-model evaluation entirely to your local machine, with zero external API calls and complete data sovereignty.
 
-# 2. Install dependencies
-pip install flask ollama
+---
 
-# 3. Run the app
-python web_chat.py
+## 🏗️ System Overview
+
+### Local-First Architecture
+
+Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestrates multiple AI models through Ollama:
+
+- **No API Keys Required**: All models run locally via Ollama's inference engine
+- **No Internet Dependency**: Works completely offline (after initial model downloads)
+- **Full Data Control**: Conversations never leave your machine
+- **Browser-Based UI**: Modern, responsive interface accessible at `http://127.0.0.1:7860`
+
+### Multi-Model Orchestration via Ollama
+
+- **Arena Mode**: Send identical prompts to 2-6 models simultaneously for blind comparison
+- **Single Model Mode**: Interactive chat with one model at a time
+- **Dynamic Model Switching**: Start in arena mode, continue conversations with individual models
+- **Real-Time Streaming**: See responses as they're generated, character by character
+
+### Persistent State and Exportable Artifacts
+
+- **Conversation Export**: Download full chat histories as JSON with timestamps and metadata
+- **Session Persistence**: Conversations survive browser refreshes (in-memory state)
+- **Model Metadata Tracking**: Records model names, response times, and token counts
+- **Audit Trail**: Complete logs available in `logger.py` output for compliance verification
+
+---
+
+## 📊 Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     BROWSER (localhost:7860)                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Web UI (templates/index.html + static/app.js)          │   │
+│  │  • Arena mode (multi-model) vs Single mode              │   │
+│  │  • Real-time streaming display                          │   │
+│  │  • Copy, export, regenerate controls                    │   │
+│  └──────────────────────┬──────────────────────────────────┘   │
+└─────────────────────────┼────────────────────────────────────────┘
+                          │ HTTP/SSE (local only)
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│             FLASK APP (web_chat.py + app/)                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Routes & API (app/routes.py, app/api_routes.py)        │  │
+│  │  • /chat (arena mode) - broadcasts to N models          │  │
+│  │  • /single_chat - single model streaming                │  │
+│  │  • /export - JSON conversation download                 │  │
+│  │  • /models - list available Ollama models               │  │
+│  └────────────────────┬─────────────────────────────────────┘  │
+│                       │                                         │
+│  ┌────────────────────▼─────────────────────────────────────┐  │
+│  │  Ollama Service (app/ollama_service.py)                 │  │
+│  │  • Model validation & health checks                     │  │
+│  │  • Streaming response handlers                          │  │
+│  │  • Error recovery & retry logic                         │  │
+│  └────────────────────┬─────────────────────────────────────┘  │
+└─────────────────────────┼────────────────────────────────────────┘
+                          │ localhost:11434 (Ollama API)
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    OLLAMA (Local Process)                       │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Model Inference Engine                                  │  │
+│  │  • llama3.2, qwen2.5, gemma2, etc.                       │  │
+│  │  • GPU acceleration (if available)                       │  │
+│  │  • Model parameter control (temp, top_p, etc.)           │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                          │ Local filesystem only
+                          ▼
+               [Models stored in ~/.ollama/models/]
+
+═══════════════════════════════════════════════════════════════════
+                    🚫 NO CLOUD BOUNDARY 🚫
+         ALL PROCESSING HAPPENS ON YOUR LOCAL MACHINE
+         NO DATA TRANSMITTED TO EXTERNAL SERVICES
+═══════════════════════════════════════════════════════════════════
 ```
 
-**That's it!** Open http://127.0.0.1:7860 in your browser.
-
-#### Quick Tips
-- Use the **📦 Models** button to download models directly in the UI
-- Or download via command line: `ollama pull llama3.2:3b`
-- Select multiple models (hold Ctrl) to compare side-by-side
-- Press `Ctrl+C` in terminal to stop
+**Key Data Flows:**
+1. User sends prompt via browser → Flask backend receives it locally
+2. Flask routes to arena (multi-model) or single-model handler
+3. Ollama service streams responses from local Ollama instance
+4. Results streamed back to browser in real-time via Server-Sent Events
+5. Export function serializes conversation to JSON (downloaded to user's machine)
 
 ---
 
-### Option 2: Advanced Setup (For Developers)
+## 🧠 Key Design Decisions
 
-**Want full control, testing, and customization? Use this method!**
+### Why Local-First?
 
-This setup gives you the complete modular architecture with all development features.
+**Privacy is non-negotiable** for many use cases:
+- Evaluating models on confidential business data (contracts, financials, customer records)
+- Testing with PII (personal identifiable information) in regulated sectors
+- Research with sensitive datasets (medical records, legal documents)
+- Competitive analysis using proprietary information
 
-#### Prerequisites
-- Install [Ollama](https://ollama.ai)
-- Python 3.8+
-- Git
+**Cost and control**:
+- No per-token API fees (models run on your hardware)
+- No rate limits or quotas
+- Complete control over model versions and parameters
+- Works in air-gapped or restricted network environments
 
-#### Full Installation
+### Why Side-by-Side Comparison?
 
-```bash
-# 1. Clone repository
-git clone https://github.com/sammy995/ollama-local-chatbot.git
-cd ollama-local-chatbot
+Human evaluation of AI quality is **highly contextual and subjective**. Direct comparison reveals:
 
-# 2. Create virtual environment
+- **Stylistic differences**: Formal vs. conversational tone, verbosity, structure
+- **Accuracy gaps**: One model hallucinates, another cites correctly
+- **Reasoning quality**: Which model shows better chain-of-thought?
+- **Latency vs. quality trade-offs**: Faster models may sacrifice depth
+
+**Blind testing** (arena mode) removes bias:
+- Models are anonymized as "Model A", "Model B", etc.
+- Users evaluate responses on merit, not brand reputation
+- Forces objective assessment of output quality
+
+### Why Human-in-the-Loop Evaluation?
+
+Automated metrics (perplexity, BLEU, F1) **fail to capture real-world usefulness**:
+
+- **Context matters**: A "wrong" answer may be more helpful than a "correct" but pedantic one
+- **Tone and empathy**: Critical for customer service, healthcare, education use cases
+- **Domain expertise**: Only humans can judge accuracy in specialized fields (law, medicine, engineering)
+- **Safety and ethics**: Automated tools miss subtle biases, offensive content, or dangerous advice
+
+**Ollama Arena enables rapid human evaluation**:
+- See 2-6 model responses instantly
+- Compare side-by-side in real-time
+- Export conversations for team review or compliance audits
+
+### Why Persistent State Matters
+
+**Reproducibility and accountability**:
+- **Audit trails**: Export conversations with timestamps for compliance reporting
+- **Iterative evaluation**: Refine prompts and re-test without losing history
+- **Team collaboration**: Share exported JSON for peer review
+- **Long-term tracking**: Monitor model performance over time as versions change
+
+**Technical robustness**:
+- In-memory session state survives browser refreshes
+- Graceful error handling prevents conversation data loss
+- Structured JSON exports enable integration with analysis tools
+
+---
+
+## 🤖 AI-Assisted QA Workflow
+
+This project was developed using **AI-assisted coding and testing** (GitHub Copilot, ChatGPT), demonstrating the power—and limitations—of AI-driven development.
+
+### How the Testing Agent Was Used
+
+1. **Test Case Generation**: AI generated comprehensive test scenarios for arena mode, single mode, error handling, and edge cases
+2. **Bug Discovery Automation**: AI systematically tested all UI features (copy, export, regenerate, model switching) and logged failures in [BUG_FIXES.md](BUG_FIXES.md)
+3. **Fix Implementation**: AI proposed code patches for 6 critical bugs, which were reviewed and applied
+4. **Regression Testing**: After fixes, AI re-validated all workflows to ensure no new breaks
+
+### What It Caught
+
+✅ **6 Critical Bugs Fixed** (documented in [BUG_FIXES.md](BUG_FIXES.md)):
+- Missing "Copy Response" button in single-model mode
+- "Continue with One Model" feature not working in arena mode
+- Regenerate button triggering errors on edge cases
+- Export function missing metadata fields
+- Model switching race conditions
+- UI state inconsistencies after rapid interactions
+
+✅ **Code Quality Issues**:
+- Inconsistent error handling in streaming responses
+- Missing input validation for model selection
+- Unhandled edge cases in conversation history management
+
+### What It Didn't Catch
+
+❌ **User Experience Nuances**:
+- Confusing button labels (AI didn't recognize UX friction)
+- Suboptimal response rendering for long outputs (required manual CSS tuning)
+- Accessibility issues (keyboard navigation, screen reader support)
+
+❌ **Performance Edge Cases**:
+- Memory leaks with 50+ message conversations (found during manual stress testing)
+- Streaming lag with slow models (AI couldn't simulate real latency)
+
+❌ **Domain-Specific Validation**:
+- Model response quality assessment (AI can't judge "good" vs. "bad" answers)
+- Privacy/security review (e.g., ensuring no telemetry or logging of sensitive data)
+
+### Why Human Oversight Remains Essential
+
+**AI is a powerful co-pilot, not an autopilot**:
+- AI-generated tests are narrow and literal (miss creative edge cases)
+- AI cannot evaluate subjective quality (UX, tone, usefulness)
+- AI lacks contextual judgment (business requirements, compliance needs)
+- **Final accountability rests with humans** (code reviews, security audits, production deployment decisions)
+
+**Hybrid workflow works best**:
+1. Use AI for initial scaffolding, boilerplate, and systematic testing
+2. Apply human judgment for architecture, UX, security, and domain correctness
+3. Iterate: AI proposes, human refines, AI validates, human approves
+
+---
+
+## 🎯 Use Cases
+
+### 1. Research
+- **Academic ML Research**: Compare model architectures on standardized benchmarks without cloud API costs
+- **Prompt Engineering**: Rapidly iterate on prompt designs and see how different models respond
+- **Model Selection**: Evaluate which open-source model (Llama, Qwen, Gemma) best fits your task
+
+### 2. Regulated Environments
+- **Healthcare**: Test AI assistants on synthetic patient data locally (HIPAA compliance)
+- **Finance**: Evaluate models on financial reports without violating SOX/GDPR
+- **Legal**: Compare legal reasoning models on case files (attorney-client privilege)
+- **Government**: Air-gapped evaluation in secure environments
+
+### 3. Enterprise Pre-Deployment Evaluation
+- **Model Vetting**: Test multiple models on real-world tasks before committing to vendor contracts
+- **Cost-Benefit Analysis**: Compare cloud API models (via local proxies) vs. self-hosted options
+- **Team Alignment**: Export conversation samples for stakeholder review before production deployment
+- **Risk Assessment**: Identify biases, hallucinations, or safety issues in candidate models
+
+---
+
+## 🚀 How to Run
+
+### Prerequisites
+- **Python 3.8+**
+- **Ollama CLI** installed ([ollama.ai](https://ollama.ai))
+- At least one model pulled (e.g., `ollama pull llama3.2`)
+
+### Installation
+
+1. **Create & activate a virtual environment:**
+
+```powershell
 python -m venv .venv
+.\.venv\Scripts\Activate.ps1  # Windows PowerShell
+# or: source .venv/bin/activate (Linux/Mac)
+```
 
-# Activate virtual environment
-# Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# Linux/Mac:
-source .venv/bin/activate
+2. **Install dependencies:**
 
-# 3. Install all dependencies
+```powershell
 pip install -r requirements.txt
-
-# 4. Optional: Copy and customize environment file
-copy .env.example .env
-# Edit .env with your preferred settings
-
-# 5. Run with new modular architecture
-python run.py
-
-# OR use the original entry point
-python web_chat.py
 ```
 
-Open http://127.0.0.1:7860
-
-#### Configuration Options
-
-Create a `.env` file or set environment variables:
+3. **Pull Ollama models** (if not already done):
 
 ```bash
-# Server
-WEB_BIND=127.0.0.1        # Host address
-WEB_PORT=7860             # Port number
-WEB_DEBUG=1               # Debug mode (0 or 1)
-
-# Security (optional)
-WEB_CHAT_TOKEN=your-token # Bearer token for API auth
-SECRET_KEY=your-secret    # Flask secret key
-
-# Ollama
-DEFAULT_MODEL=ministral-3:3b  # Default model
-HISTORY_LIMIT=40              # Max chat messages
-
-# Logging
-LOG_LEVEL=INFO           # DEBUG, INFO, WARNING, ERROR
+ollama pull llama3.2
+ollama pull qwen2.5:latest
+ollama pull gemma2:9b
 ```
 
-#### Project Structure
+### Running the Application
 
-```
-ollama-arena/
-├── web_chat.py          # Main Flask app (simple entry point)
-├── run.py               # New modular entry point
-├── Chatbot.py           # CLI chatbot script
-├── config.py            # Configuration management
-├── logger.py            # Logging setup
-├── app/                 # Modular application package
-│   ├── __init__.py      # Application factory
-│   ├── api_routes.py    # API endpoints
-│   ├── web_routes.py    # Web routes
-│   ├── ollama_service.py # Ollama integration
-│   ├── middleware.py    # Auth & logging
-│   ├── error_handlers.py # Error handling
-│   └── routes.py        # Blueprint registry
-├── static/
-│   ├── app.js           # Frontend JavaScript (2000+ lines)
-│   └── styles.css       # Styles with dark mode
-├── templates/
-│   └── index.html       # Main UI
-├── requirements.txt     # Dependencies
-└── requirements-dev.txt # Development dependencies
+**Option 1: Web UI (Recommended)**
+
+```powershell
+python .\web_chat.py
 ```
 
-#### Development Mode
+Open http://127.0.0.1:7860 in your browser.
 
-```bash
-# Enable debug logging
-export WEB_DEBUG=1
-export LOG_LEVEL=DEBUG
+**Option 2: Terminal Chat**
 
-# Run with auto-reload
-python web_chat.py
+```powershell
+python .\Chatbot.py
 ```
 
-#### Production Deployment
+### What's Included
 
-```bash
-# Install production server
-pip install gunicorn
-
-# Set production config
-export FLASK_ENV=production
-export SECRET_KEY="your-secure-key"
-
-# Run with gunicorn
-gunicorn -w 4 -b 0.0.0.0:7860 "app:create_app()"
-```
+- [web_chat.py](web_chat.py) — Flask app entry point
+- [app/](app/) — Backend modules (routes, Ollama service, error handlers)
+- [templates/index.html](templates/index.html) — Web UI template
+- [static/app.js](static/app.js) — Frontend logic (arena mode, streaming, export)
+- [static/styles.css](static/styles.css) — Bootstrap-based responsive design
+- [Chatbot.py](Chatbot.py) — Terminal chatbot (single model)
+- [config.py](config.py) — Application configuration
+- [logger.py](logger.py) — Structured logging for debugging and audits
+- [requirements.txt](requirements.txt) — Python dependencies
 
 ---
 
-## 📚 Usage Guide
+## 📚 How to Cite
 
-### Downloading Models
+If you use Ollama Arena in your research, please cite:
 
-**Option 1: Using UI**
-1. Click **📦 Models** button (top-right)
-2. Switch to "Available Models" tab
-3. Search for models (e.g., "llama", "qwen", "deepseek")
-4. Click **⬇️ Download**
-
-**Option 2: Using CLI**
-```bash
-ollama pull llama3.2:3b
-ollama pull qwen2.5:7b
-ollama pull deepseek-r1:8b
+```bibtex
+@software{ollama_arena_2026,
+  author       = {Lagad, Shubham},
+  title        = {Ollama Arena: Local-First Multi-Model AI Comparison Platform},
+  year         = {2026},
+  month        = {January},
+  url          = {https://github.com/yourusername/ollama-arena},
+  note         = {Privacy-first side-by-side evaluation of local AI models via Ollama},
+  license      = {MIT}
+}
 ```
 
-### Comparing Models
-
-1. Select multiple models from dropdown (Hold Ctrl/Cmd)
-2. Type your question
-3. Click **Send** or press `Ctrl+Enter`
-4. View responses side-by-side
-
-### Keyboard Shortcuts
-
-- `Ctrl+Enter` - Send message
-- `Ctrl+N` - New conversation
-- `Ctrl+K` - Focus input
-- `Esc` - Cancel request
-
----
-
-## 📡 API Documentation
-
-All API endpoints are under `/api` prefix. See [API.md](API.md) for complete documentation.
-
-**Key Endpoints:**
-- `GET /api/models` - List available models
-- `POST /api/chat` - Send chat messages
-- `POST /api/stream_chat` - Stream responses
-- `POST /api/pull_model` - Download model
-- `POST /api/delete_model` - Delete model
-- `GET /api/health` - Health check
-
----
-
-## 🔍 Troubleshooting
-
-### No models showing?
-```bash
-# Download models via Ollama CLI
-ollama pull llama3.2:3b
-
-# Or use the Model Manager in the UI (📦 Models button)
-```
-
-### Port already in use?
-```bash
-# Windows PowerShell
-$env:WEB_PORT="8080"
-python web_chat.py
-
-# Linux/Mac
-export WEB_PORT=8080
-python web_chat.py
-```
-
-### Can't connect to Ollama?
-```bash
-# Check if Ollama is installed and running
-ollama list
-
-# If not installed, download from https://ollama.ai
-```
-
-### Enable debug logging
-```bash
-# Windows PowerShell
-$env:LOG_LEVEL="DEBUG"
-python web_chat.py
-
-# Linux/Mac
-export LOG_LEVEL=DEBUG
-python web_chat.py
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Key Features to Highlight in Citations:**
+- Local-first architecture (zero cloud dependencies)
+- Multi-model orchestration for blind comparison
+- Human-in-the-loop evaluation workflows
+- Compliance-friendly (GDPR, HIPAA, SOX)
 
 ---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
-Copyright (c) 2026 Shubham Lagad
+**Copyright © 2026 Shubham Lagad**
 
----
+### Third-Party Software Notice
 
-## 🙏 Acknowledgments
-
-- **[Ollama](https://ollama.ai)** (© Ollama, Inc.) - The powerful local LLM runtime that makes this possible
-- **[Flask](https://flask.palletsprojects.com/)** - Python web framework
-- **[Bootstrap](https://getbootstrap.com/)** - UI framework
-- All contributors and users who make this project better
+This software uses [Ollama](https://ollama.ai) (© Ollama, Inc.), which is a separate product with its own license terms. Ollama is not included in this MIT License. Please refer to [Ollama's license](https://github.com/ollama/ollama) for details.
 
 ---
 
-**Created with ❤️ by Shubham Lagad for the open-source AI community**
+## 🤝 Contributing
 
-*Disclaimer: This is an independent open-source project not affiliated with Ollama, Inc. It uses the Ollama runtime (© Ollama, Inc.). All trademarks are property of their respective owners.*
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- **Code of Conduct**: Respectful, inclusive collaboration
+- **Development Setup**: How to fork, clone, and set up dev environment
+- **Coding Standards**: Python style guide, linting rules, test requirements
+- **Pull Request Process**: Branch naming, commit messages, review workflow
+- **Issue Guidelines**: Bug reports, feature requests, documentation improvements
+
+**Quick Start for Contributors:**
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make changes and test locally
+4. Run linter: `pip install -r requirements-dev.txt && flake8`
+5. Submit PR with clear description of changes
+
+**Priority Areas for Contribution:**
+- 🔧 Accessibility improvements (ARIA labels, keyboard navigation)
+- 🎨 UI/UX enhancements (dark mode, mobile responsiveness)
+- 📊 Export formats (CSV, Markdown, PDF)
+- 🧪 Automated testing (pytest suite expansion)
+- 📖 Documentation (tutorials, video guides, translations)
+
+---
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/yourusername/ollama-arena/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollama-arena/discussions)
+- **Bug Reports**: See [BUG_FIXES.md](BUG_FIXES.md) for known issues and fixes
+- **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
+
+---
+
+**Made with ❤️ for privacy-conscious AI practitioners**
