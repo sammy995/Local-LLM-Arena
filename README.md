@@ -184,13 +184,13 @@ This project was developed using **AI-assisted coding and testing** (GitHub Copi
 ### How the Testing Agent Was Used
 
 1. **Test Case Generation**: AI generated comprehensive test scenarios for arena mode, single mode, error handling, and edge cases
-2. **Bug Discovery Automation**: AI systematically tested all UI features (copy, export, regenerate, model switching) and logged failures in [BUG_FIXES.md](BUG_FIXES.md)
+2. **Bug Discovery Automation**: AI systematically tested all UI features (copy, export, regenerate, model switching) and documented failures
 3. **Fix Implementation**: AI proposed code patches for 6 critical bugs, which were reviewed and applied
 4. **Regression Testing**: After fixes, AI re-validated all workflows to ensure no new breaks
 
 ### What It Caught
 
-✅ **6 Critical Bugs Fixed** (documented in [BUG_FIXES.md](BUG_FIXES.md)):
+✅ **6 Critical Bugs Fixed**:
 - Missing "Copy Response" button in single-model mode
 - "Continue with One Model" feature not working in arena mode
 - Regenerate button triggering errors on edge cases
@@ -304,6 +304,7 @@ python .\Chatbot.py
 ### What's Included
 
 - [web_chat.py](web_chat.py) — Flask app entry point
+- [run.py](run.py) — Alternative entry point
 - [app/](app/) — Backend modules (routes, Ollama service, error handlers)
 - [templates/index.html](templates/index.html) — Web UI template
 - [static/app.js](static/app.js) — Frontend logic (arena mode, streaming, export)
@@ -382,7 +383,6 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/ollama-arena/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollama-arena/discussions)
-- **Bug Reports**: See [BUG_FIXES.md](BUG_FIXES.md) for known issues and fixes
 - **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
 
 ---
