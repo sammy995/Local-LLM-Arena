@@ -384,6 +384,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - **Issues**: [GitHub Issues](https://github.com/yourusername/ollama-arena/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollama-arena/discussions)
 - **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
+- **Detailed Article**: [Designing a Local First LLM Evaluation system](https://medium.com/@shubhamlagad/designing-a-local-first-llm-evaluation-system-068f556a2fb8)
 
 ---
 
