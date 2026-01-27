@@ -12,6 +12,11 @@
       <!-- Header -->
       <div class="app-header">
         <div class="header-left">
+          <button id="sidebarToggle" class="btn-hamburger" onclick="toggleSidebar()" title="Toggle conversations">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+          </button>
           <div class="app-logo">⚔️</div>
           <div class="app-title-section">
             <h1 class="app-title">Local LLM Arena</h1>
@@ -21,16 +26,12 @@
         <div class="header-right">
           <button onclick="openModelManager()" class="btn-model-manager" title="Manage Ollama Models">📦 Models</button>
           <button id="themeToggle" class="btn-theme-toggle" title="Toggle dark/light mode">🌙</button>
-          <div class="server-info">
-            <small>Server:</small>
-            <span id="server">127.0.0.1:7860</span>
-          </div>
         </div>
       </div>
 
       <div class="chat-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
+        <!-- Sidebar (collapsible) -->
+        <div id="sidebar" class="sidebar">
           <div class="sidebar-header">
             <strong>💬 Conversations</strong>
             <button id="newChat" class="btn btn-sm btn-new-chat">+ New</button>
@@ -40,32 +41,82 @@
 
         <!-- Main Area -->
         <div class="main-area">
-          <!-- Control Panel -->
-          <div class="control-panel">
-            <div class="control-row">
-              <div class="control-group">
-                <label class="control-label">🤖 Models <span id="modelBadge" class="model-badge" style="display:none;"></span></label>
-                <select id="model" class="form-select model-select" multiple size="4"></select>
-                <small class="text-muted">Hold Ctrl to select multiple</small>
+          <!-- Compact Control Panel -->
+          <div class="control-panel compact">
+            <!-- Model Selection - Unified Flow -->
+            <div id="modelSelectionArea" class="model-selection-area">
+              <div class="model-selector-header">
+                <label class="control-label">🤖 Models</label>
+                <div class="mode-toggles">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="streamMode">
+                    <label class="form-check-label" for="streamMode">Stream</label>
+                  </div>
+                </div>
               </div>
-              <div class="control-group">
-                <label class="control-label">📝 System Prompt</label>
-                <textarea id="system" class="form-control system-input" rows="4">You are a sharp teacher like Richard Feynman.</textarea>
+              
+              <!-- Add Model Row with all hyperparameters -->
+              <div class="add-model-row">
+                <select id="modelSelect" class="form-select model-dropdown">
+                  <option value="">+ Add model...</option>
+                </select>
+                <div class="hyperparam-controls">
+                  <div class="param-control">
+                    <label title="Temperature - controls randomness (0.1-2.0)">🌡️ Temp</label>
+                    <input type="number" id="addModelTemp" value="0.7" min="0.01" max="2" step="0.1">
+                  </div>
+                  <div class="param-control">
+                    <label title="Top-P - nucleus sampling (0-1)">📊 Top-P</label>
+                    <input type="number" id="addModelTopP" value="0.9" min="0" max="1" step="0.05">
+                  </div>
+                  <div class="param-control">
+                    <label title="Top-K - limits token choices (0-100)">🎯 Top-K</label>
+                    <input type="number" id="addModelTopK" value="40" min="0" max="100" step="1">
+                  </div>
+                  <div class="param-control">
+                    <label title="Repeat Penalty - penalize repetition (1.0-2.0)">🔄 Rep</label>
+                    <input type="number" id="addModelRepeatPenalty" value="1.1" min="1" max="2" step="0.1">
+                  </div>
+                  <div class="param-control">
+                    <label title="Max Tokens - limit output length (-1=unlimited)">📏 Max</label>
+                    <input type="number" id="addModelNumPredict" value="-1" min="-1" max="4096" step="128">
+                  </div>
+                  <div class="param-control">
+                    <label title="Seed - for reproducibility (0=random)">🎲 Seed</label>
+                    <input type="number" id="addModelSeed" value="0" min="0" step="1">
+                  </div>
+                </div>
+                <button class="btn btn-sm btn-add-model" onclick="addModelToArena()">+ Add</button>
+              </div>
+              
+              <!-- Selected Models Chips with inline Blind Mode toggle -->
+              <div class="chips-header">
+                <span class="chips-label">Selected Models:</span>
+                <div id="blindModeInline" class="blind-mode-inline">
+                  <div class="form-check form-switch blind-mode-toggle">
+                    <input class="form-check-input" type="checkbox" id="blindModeToggle" onchange="toggleBlindMode()">
+                    <label class="form-check-label" for="blindModeToggle">🎭 Blind</label>
+                  </div>
+                  <button id="revealModelsBtn" class="btn-reveal" onclick="revealModels()" style="display:none">👁️ Reveal</button>
+                </div>
+              </div>
+              <div id="selectedModelsChips" class="selected-models-chips">
+                <div class="empty-models-hint">Select models above to compare</div>
               </div>
             </div>
             
-            <div class="control-footer">
-              <div class="control-options">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="streamMode">
-                  <label class="form-check-label" for="streamMode">Stream responses</label>
-                </div>
-              </div>
-              <div class="control-buttons">
-                <button id="clear" class="btn btn-sm btn-outline-secondary">Clear</button>
-                <button id="export" class="btn btn-sm btn-outline-primary">Export</button>
-              </div>
+            <!-- System Prompt (collapsible) -->
+            <details class="system-prompt-section">
+              <summary>📝 System Prompt</summary>
+              <textarea id="system" class="form-control system-input" rows="2">You are a sharp teacher like Richard Feynman.</textarea>
+            </details>
+            
+            <!-- Action Buttons -->
+            <div class="control-actions">
+              <button id="clear" class="btn btn-sm btn-outline-secondary">Clear Chat</button>
+              <button id="export" class="btn btn-sm btn-outline-primary">Export</button>
             </div>
+            
             <div id="status" class="status-message" style="display:none"></div>
           </div>
 
@@ -74,16 +125,6 @@
 
           <!-- Input Area -->
           <div class="input-area">
-            <!-- Prompt Library -->
-            <div class="prompt-library-bar">
-              <button id="promptLibraryBtn" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('promptDropdown').style.display = document.getElementById('promptDropdown').style.display === 'none' ? 'block' : 'none'; renderPromptDropdown();" title="Saved prompts">
-                📚 Saved Prompts
-              </button>
-              <button id="savePromptBtn" class="btn btn-sm btn-outline-secondary" onclick="saveCurrentPrompt()" title="Save current prompt">
-                + Save
-              </button>
-            </div>
-            
             <div class="input-wrapper">
               <input type="file" id="fileInput" style="display: none;" onchange="handleFileUpload(this.files[0])" accept=".txt,.md,.csv,.json,.xml,.py,.js,.java,.cpp,.c,.h,.html,.css,.sql,.sh" />
               <button id="fileUploadBtn" class="btn-file-upload" onclick="document.getElementById('fileInput').click()" title="Attach file">
@@ -96,6 +137,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Hidden model select for compatibility -->
+    <select id="model" style="display:none" multiple></select>
 
     <script src="/static/app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

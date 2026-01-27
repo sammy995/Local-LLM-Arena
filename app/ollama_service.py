@@ -101,7 +101,8 @@ class OllamaService:
     def chat(
         model: str,
         messages: List[Dict[str, str]],
-        stream: bool = False
+        stream: bool = False,
+        options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Send chat request to Ollama model.
@@ -110,14 +111,20 @@ class OllamaService:
             model: Model name
             messages: List of message dicts with 'role' and 'content'
             stream: Whether to stream the response
+            options: Optional dict with temperature, top_p, top_k, etc.
         
         Returns:
             Response dict with 'content' and optional 'metrics'
         """
         try:
-            logger.debug(f"Chat request to {model} (stream={stream})")
+            logger.debug(f"Chat request to {model} (stream={stream}, options={options})")
             
-            response = ollama.chat(model=model, messages=messages, stream=stream)
+            # Build request kwargs
+            kwargs = {'model': model, 'messages': messages, 'stream': stream}
+            if options:
+                kwargs['options'] = options
+            
+            response = ollama.chat(**kwargs)
             content = OllamaService._extract_assistant_text(response)
             
             result = {'content': content}
@@ -145,7 +152,8 @@ class OllamaService:
     @staticmethod
     def chat_stream(
         model: str,
-        messages: List[Dict[str, str]]
+        messages: List[Dict[str, str]],
+        options: Optional[Dict[str, Any]] = None
     ) -> Generator[str, None, None]:
         """
         Stream chat responses from Ollama model.
@@ -153,14 +161,20 @@ class OllamaService:
         Args:
             model: Model name
             messages: List of message dicts
+            options: Optional dict with temperature, top_p, top_k, etc.
         
         Yields:
             Chunks of response text
         """
         try:
-            logger.debug(f"Stream chat request to {model}")
+            logger.debug(f"Stream chat request to {model} with options={options}")
             
-            stream = ollama.chat(model=model, messages=messages, stream=True)
+            # Build request kwargs
+            kwargs = {'model': model, 'messages': messages, 'stream': True}
+            if options:
+                kwargs['options'] = options
+            
+            stream = ollama.chat(**kwargs)
             
             for chunk in stream:
                 text = OllamaService._extract_assistant_text(chunk)

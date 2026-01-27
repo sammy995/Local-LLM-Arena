@@ -58,6 +58,9 @@ npm-debug.log*
 # Exclude specific independent files
 ollama-ministral-3-image-explainer.py
 ollana.py
+ARTICLE_SUMMARY.md
+ARTICLE_LOCAL_LLM_EVALUATION.md
+ARXIV_SUBMISSION.tex
 
 # Development documentation (keep in local only)
 BUG_FIXES.md
@@ -67,3 +70,25 @@ REFACTOR_SUMMARY.md
 *.tmp
 *.bak
 *.swp
+
+# Session data
+sessions/
+flask_session/
+
+# User uploads/exports (if any)
+uploads/
+exports/
+
+# Workspace specific
+Ollama-course.code-workspace
+
+# Python cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Conda environment
+.conda/
+conda-meta/

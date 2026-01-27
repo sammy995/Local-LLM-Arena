@@ -1,6 +1,10 @@
 # Ollama Arena — Local Multi-Model AI Comparison Platform
 
-A privacy-first, local-only web application for side-by-side evaluation of multiple AI models via Ollama, with persistent conversation state and exportable results.
+A privacy-first, local-only web application for side-by-side evaluation of multiple AI models via Ollama, with **blind evaluation**, **per-model hyperparameters**, and exportable results.
+
+**Version 3.0.0** — Advanced Model Configuration & Blind Testing
+
+> **Note**: This application uses [Ollama](https://ollama.ai) (© Ollama, Inc.) as the local inference engine. Ollama is a separate product with its own [MIT License](https://github.com/ollama/ollama/blob/main/LICENSE). All models run locally on your machine through Ollama.
 
 ---
 
@@ -40,9 +44,13 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 - **Full Data Control**: Conversations never leave your machine
 - **Browser-Based UI**: Modern, responsive interface accessible at `http://127.0.0.1:7860`
 
-### Multi-Model Orchestration via Ollama
+### Multi-Model Orchestration with Advanced Configuration
 
 - **Arena Mode**: Send identical prompts to 2-6 models simultaneously for blind comparison
+- **Blind Evaluation**: Hide model identities to eliminate bias (Model A, B, C labels)
+- **Per-Model Hyperparameters**: Configure 6 parameters independently per model instance
+  - `temperature`, `top_p`, `top_k`, `repeat_penalty`, `num_predict`, `seed`
+- **Multi-Configuration Testing**: Compare same model with different parameter sets
 - **Single Model Mode**: Interactive chat with one model at a time
 - **Dynamic Model Switching**: Start in arena mode, continue conversations with individual models
 - **Real-Time Streaming**: See responses as they're generated, character by character
@@ -50,9 +58,84 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 ### Persistent State and Exportable Artifacts
 
 - **Conversation Export**: Download full chat histories as JSON with timestamps and metadata
+- **Blind Mode Export**: Privacy-preserving exports with masked model names until revealed
 - **Session Persistence**: Conversations survive browser refreshes (in-memory state)
-- **Model Metadata Tracking**: Records model names, response times, and token counts
+- **Model Metadata Tracking**: Records model names, hyperparameters, response times, and token counts
+- **Voting System**: Like/dislike responses in blind mode for unbiased evaluation
 - **Audit Trail**: Complete logs available in `logger.py` output for compliance verification
+
+---
+
+## ✨ Key Features (v3.0.0)
+
+### 🎭 Blind Evaluation Mode
+
+**Eliminate bias in model comparison** by hiding model identities during evaluation.
+
+- **Anonymous Labels**: Models displayed as "Model A", "Model B", "Model C"
+- **Randomized Order**: Display order randomized to prevent position bias
+- **Voting System**: 👍/👎 buttons for each response (blind to which model)
+- **Model Reveal**: Unlock actual identities with detailed statistics
+  - Shows model names, hyperparameters, and vote counts
+  - Locks voting after reveal to preserve integrity
+- **Privacy-Preserving Export**: Masked model names in JSON until reveal
+  - Filename gets `_blind` suffix for clarity
+  - Full mapping included after reveal
+
+**Use Cases**:
+- Unbiased benchmarking without brand perception
+- Team evaluations where model choices are debated
+- A/B testing without preconceived notions
+- Educational settings to teach critical evaluation
+
+### ⚙️ Per-Model Hyperparameters
+
+**Fine-tune each model instance independently** with 6 Ollama-supported parameters:
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| `temperature` | 0.01-2.0 | 0.7 | Controls randomness (low = deterministic, high = creative) |
+| `top_p` | 0-1 | 0.9 | Nucleus sampling (cumulative probability cutoff) |
+| `top_k` | 0-100 | 40 | Limits token choices to top K candidates |
+| `repeat_penalty` | 1.0-2.0 | 1.1 | Penalizes repetitive text (higher = more diverse) |
+| `num_predict` | -1 to 4096 | -1 | Max tokens to generate (-1 = unlimited) |
+| `seed` | 0+ | 0 | For reproducible outputs (0 = random) |
+
+**Visual Display**: Model chips show all parameters inline:
+- Core params always visible: `gemma3:1b (T=0.7 P=0.9 K=40)`
+- Advanced params shown when non-default: `+ R=1.5 M=500 S=42`
+
+**Persistence**: Hyperparameters saved per model instance, survive refreshes
+
+### 🔄 Multi-Configuration Testing
+
+**Compare the same model with different parameter sets** to optimize performance:
+
+- **Unique Instances**: `gemma3:1b` at T=0.1, T=0.7, T=2.0 treated as separate models
+- **Deterministic IDs**: Instance ID = `{model}__{temp}_{top_p}_{top_k}_{repeat}_{predict}_{seed}`
+  - Example: `gemma3_1b__0.7_0.9_40_1.1_-1_0`
+- **Prevents Duplicates**: Cannot add identical model+param combos twice
+- **Visual Distinction**: Each instance shown as separate chip with parameters
+
+**Use Cases**:
+- Find optimal temperature for creative vs. factual tasks
+- Test impact of `top_k` on response diversity
+- Discover best `repeat_penalty` for long-form content
+- Compare deterministic (seed set) vs. random outputs
+
+### 📊 Enhanced Model Reveal
+
+When you click "Reveal All Models" in blind mode:
+
+| Blind Label | Actual Model | Hyperparameters | 👍 Likes | 👎 Dislikes |
+|-------------|--------------|-----------------|---------|-------------|
+| Model A | gemma3:1b | `T=0.7 P=0.9 K=40 R=1.1 M=-1 S=0` | 3 | 1 |
+| Model B | qwen2.5:3b | `T=0.5 P=0.8 K=30 R=1.2 M=500 S=42` | 5 | 0 |
+| Model C | llama3.2:3b | `T=1.0 P=1.0 K=50 R=1.0 M=-1 S=0` | 2 | 2 |
+
+- **Hyperparameters Column**: Shows full configuration for each instance
+- **Vote Counts**: Aggregate likes/dislikes across all responses
+- **Makes Distinguishing Easy**: See which parameter set performed best
 
 ---
 
@@ -61,9 +144,11 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     BROWSER (localhost:7860)                    │
-│  ┌─────────────────────────────────────────────────────────┐   │
+│  ┌─────────────────────────────────────────────────────────────┐   │
 │  │  Web UI (templates/index.html + static/app.js)          │   │
 │  │  • Arena mode (multi-model) vs Single mode              │   │
+│  │  • Blind evaluation with voting                         │   │
+│  │  • Per-model hyperparameter controls (6 params)         │   │
 │  │  • Real-time streaming display                          │   │
 │  │  • Copy, export, regenerate controls                    │   │
 │  └──────────────────────┬──────────────────────────────────┘   │
@@ -75,6 +160,7 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  Routes & API (app/routes.py, app/api_routes.py)        │  │
 │  │  • /chat (arena mode) - broadcasts to N models          │  │
+│  │  • Supports model_instances with hyperparameters        │  │
 │  │  • /single_chat - single model streaming                │  │
 │  │  • /export - JSON conversation download                 │  │
 │  │  • /models - list available Ollama models               │  │
@@ -84,6 +170,7 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 │  │  Ollama Service (app/ollama_service.py)                 │  │
 │  │  • Model validation & health checks                     │  │
 │  │  • Streaming response handlers                          │  │
+│  │  • Hyperparameter passthrough to Ollama API             │  │
 │  │  • Error recovery & retry logic                         │  │
 │  └────────────────────┬─────────────────────────────────────┘  │
 └─────────────────────────┼────────────────────────────────────────┘
@@ -95,7 +182,8 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 │  │  Model Inference Engine                                  │  │
 │  │  • llama3.2, qwen2.5, gemma2, etc.                       │  │
 │  │  • GPU acceleration (if available)                       │  │
-│  │  • Model parameter control (temp, top_p, etc.)           │  │
+│  │  • Model parameter control (temp, top_p, top_k, etc.)    │  │
+│  │  • Accepts options: repeat_penalty, num_predict, seed    │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                           │ Local filesystem only
@@ -111,10 +199,13 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 
 **Key Data Flows:**
 1. User sends prompt via browser → Flask backend receives it locally
-2. Flask routes to arena (multi-model) or single-model handler
-3. Ollama service streams responses from local Ollama instance
-4. Results streamed back to browser in real-time via Server-Sent Events
-5. Export function serializes conversation to JSON (downloaded to user's machine)
+2. User configures hyperparameters per model instance in UI
+3. Flask routes to arena (multi-model) or single-model handler
+4. Backend extracts `model_instances` array with params, passes options to Ollama
+5. Ollama service streams responses from local Ollama instance with configured params
+6. Results streamed back to browser in real-time via Server-Sent Events
+7. Blind mode masks model identities, voting system tracks preferences
+8. Export function serializes conversation to JSON (masked or revealed based on state)
 
 ---
 
@@ -134,19 +225,25 @@ Ollama Arena is a **100% local, zero-cloud** Flask web application that orchestr
 - Complete control over model versions and parameters
 - Works in air-gapped or restricted network environments
 
-### Why Side-by-Side Comparison?
+### Why Blind Evaluation?
 
-Human evaluation of AI quality is **highly contextual and subjective**. Direct comparison reveals:
+Human evaluation of AI quality is **highly subjective and influenced by brand perception**:
 
-- **Stylistic differences**: Formal vs. conversational tone, verbosity, structure
-- **Accuracy gaps**: One model hallucinates, another cites correctly
-- **Reasoning quality**: Which model shows better chain-of-thought?
-- **Latency vs. quality trade-offs**: Faster models may sacrifice depth
+- **Eliminates Bias**: Without knowing which model is which, evaluators judge purely on output quality
+- **Surprises**: Smaller models often outperform larger ones on specific tasks
+- **Team Consensus**: Resolves debates by letting results speak for themselves
+- **Educational**: Teaches critical evaluation without preconceived notions
 
-**Blind testing** (arena mode) removes bias:
-- Models are anonymized as "Model A", "Model B", etc.
-- Users evaluate responses on merit, not brand reputation
-- Forces objective assessment of output quality
+### Why Per-Model Hyperparameters?
+
+Different tasks require different parameter sets:
+
+- **Creative Writing**: High temperature (1.5+), high top_p (0.95+)
+- **Code Generation**: Low temperature (0.1-0.3), low top_k (10-20)
+- **Factual Q&A**: Medium temperature (0.5-0.7), repeat_penalty (1.2+)
+- **Reproducibility**: Set seed > 0 for deterministic outputs
+
+**Flexibility**: Run same model at multiple temperatures to find optimal setting for your use case.
 
 ### Why Human-in-the-Loop Evaluation?
 

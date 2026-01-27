@@ -10,9 +10,14 @@ const sessionsEl = document.getElementById('sessions');
 const statusEl = document.getElementById('status');
 const newChatBtn = document.getElementById('newChat');
 
-const STORAGE_KEY = 'chat_sessions_v1';
-const VOTES_KEY = 'model_votes_v1';
+// Storage keys - versioned for schema changes
+const STORAGE_KEY = 'chat_sessions_v2'; // Updated version for new schema
+const VOTES_KEY = 'model_votes_v2'; // Updated for blind mode
 const PROMPTS_KEY = 'saved_prompts_v1';
+const BLIND_SESSIONS_KEY = 'blind_sessions_v1'; // New: blind mode state
+const MODEL_INSTANCES_KEY = 'model_instances_v1'; // New: saved hyperparameter configs
+const SIDEBAR_STATE_KEY = 'sidebar_collapsed_v1';
+
 let sessions = [];
 let currentSessionId = null;
 let abortController = null;
@@ -20,6 +25,393 @@ let requestTimeout = null;
 const REQUEST_TIMEOUT_MS = 300000; // 5 minutes for multiple models
 let uploadedFiles = []; // Array of uploaded files for current conversation
 let previousModels = []; // Store previous model selection for "back to comparison"
+let sidebarCollapsed = false;
+
+// ========== BLIND MODE STATE ==========
+let blindModeEnabled = false;
+let blindSessionState = null; // {sessionId, mapping: {instanceId: blindLabel}, revealed: false, revealedAt: null, votes: {}}
+
+// ========== MODEL INSTANCE STATE ==========
+// Each instance: {id, model, temperature, top_p, top_k, repeat_penalty, num_predict, seed}
+let modelInstances = [];
+
+// Default hyperparameters (Ollama defaults)
+const DEFAULT_HYPERPARAMS = {
+  temperature: 0.7,
+  top_p: 0.9,
+  top_k: 40,
+  repeat_penalty: 1.1,
+  num_predict: -1,  // -1 = unlimited
+  seed: 0           // 0 = random
+};
+
+// ========== SIDEBAR TOGGLE ==========
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const mainArea = document.querySelector('.main-area');
+  const hamburger = document.getElementById('sidebarToggle');
+  
+  sidebarCollapsed = !sidebarCollapsed;
+  
+  if (sidebarCollapsed) {
+    sidebar.classList.add('collapsed');
+    mainArea.classList.add('sidebar-collapsed');
+    hamburger.classList.add('active');
+  } else {
+    sidebar.classList.remove('collapsed');
+    mainArea.classList.remove('sidebar-collapsed');
+    hamburger.classList.remove('active');
+  }
+  
+  localStorage.setItem(SIDEBAR_STATE_KEY, sidebarCollapsed ? 'true' : 'false');
+}
+
+function loadSidebarState() {
+  const saved = localStorage.getItem(SIDEBAR_STATE_KEY);
+  if (saved === 'true') {
+    sidebarCollapsed = true;
+    const sidebar = document.getElementById('sidebar');
+    const mainArea = document.querySelector('.main-area');
+    const hamburger = document.getElementById('sidebarToggle');
+    if (sidebar) sidebar.classList.add('collapsed');
+    if (mainArea) mainArea.classList.add('sidebar-collapsed');
+    if (hamburger) hamburger.classList.add('active');
+  }
+}
+
+// ========== UNIFIED MODEL SELECTION ==========
+function addModelToArena() {
+  const modelSelect = document.getElementById('modelSelect');
+  const tempInput = document.getElementById('addModelTemp');
+  const topPInput = document.getElementById('addModelTopP');
+  const topKInput = document.getElementById('addModelTopK');
+  const repeatPenaltyInput = document.getElementById('addModelRepeatPenalty');
+  const numPredictInput = document.getElementById('addModelNumPredict');
+  const seedInput = document.getElementById('addModelSeed');
+  
+  if (!modelSelect || !modelSelect.value) {
+    showHelperText('⚠️ Please select a model');
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  const modelName = modelSelect.value;
+  const temperature = parseFloat(tempInput?.value) || DEFAULT_HYPERPARAMS.temperature;
+  const top_p = parseFloat(topPInput?.value) || DEFAULT_HYPERPARAMS.top_p;
+  const top_k = parseInt(topKInput?.value) || DEFAULT_HYPERPARAMS.top_k;
+  const repeat_penalty = parseFloat(repeatPenaltyInput?.value) || DEFAULT_HYPERPARAMS.repeat_penalty;
+  const num_predict = parseInt(numPredictInput?.value);
+  const seed = parseInt(seedInput?.value) || DEFAULT_HYPERPARAMS.seed;
+  
+  // Create instance with all hyperparameters
+  const params = {
+    temperature: temperature,
+    top_p: top_p,
+    top_k: top_k,
+    repeat_penalty: repeat_penalty,
+    num_predict: isNaN(num_predict) ? DEFAULT_HYPERPARAMS.num_predict : num_predict,
+    seed: seed
+  };
+  
+  const inst = createModelInstance(modelName, params);
+  
+  // Allow duplicates with DIFFERENT temperatures, but not identical instances
+  if (isDuplicateInstance(inst)) {
+    showHelperText('⚠️ This exact configuration already exists');
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  if (modelInstances.length >= 8) {
+    showHelperText('⚠️ Maximum 8 models allowed');
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  modelInstances.push(inst);
+  saveModelInstances();
+  renderSelectedModelsChips();
+  
+  // Reset dropdown but keep temperature
+  modelSelect.value = '';
+  
+  showHelperText(`✓ Added ${modelName}`);
+  setTimeout(hideHelperText, 1500);
+}
+
+function removeModelFromArena(instanceId) {
+  modelInstances = modelInstances.filter(i => i.id !== instanceId);
+  saveModelInstances();
+  renderSelectedModelsChips();
+}
+
+function renderSelectedModelsChips() {
+  const container = document.getElementById('selectedModelsChips');
+  if (!container) return;
+  
+  if (modelInstances.length === 0) {
+    container.innerHTML = '<div class="empty-models-hint">Select models above to compare</div>';
+    return;
+  }
+  
+  const isBlindActive = blindModeEnabled && blindSessionState && !blindSessionState.revealed;
+  
+  let html = '';
+  modelInstances.forEach((inst, idx) => {
+    // In blind mode, hide the actual model name and hyperparams
+    let displayText;
+    let displayParams = '';
+    const chipClass = isBlindActive ? 'model-chip blind-mode' : 'model-chip';
+    
+    if (isBlindActive) {
+      // Show blind label or generic "Model X"
+      const blindLabel = blindSessionState.mapping[inst.id] || `Model ${String.fromCharCode(65 + idx)}`;
+      displayText = blindLabel;
+      // No hyperparams shown in blind mode
+    } else {
+      displayText = inst.model;
+      // Show all hyperparameters using helper
+      displayParams = formatHyperparamsShort(inst);
+    }
+    
+    html += `
+      <div class="${chipClass}" data-instance-id="${inst.id}">
+        <span class="chip-name">${displayText}</span>
+        ${displayParams ? `<span class="chip-params">${displayParams}</span>` : ''}
+        ${!isBlindActive ? `<button class="chip-remove" onclick="removeModelFromArena('${inst.id}')" title="Remove">×</button>` : ''}
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+async function populateModelDropdown() {
+  const select = document.getElementById('modelSelect');
+  if (!select) return;
+  
+  select.innerHTML = '<option value="">+ Add model...</option>';
+  
+  // Always fetch fresh models from API
+  try {
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    const models = data.models || [];
+    
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      select.appendChild(opt);
+      
+      // Also add to hidden select for compatibility if not already there
+      if (!Array.from(modelEl.options).some(o => o.value === m)) {
+        const hiddenOpt = document.createElement('option');
+        hiddenOpt.value = m;
+        hiddenOpt.textContent = m;
+        modelEl.appendChild(hiddenOpt);
+      }
+    });
+    
+    // Update global installedModels if defined
+    if (typeof installedModels !== 'undefined') {
+      installedModels = models;
+    }
+  } catch (err) {
+    console.error('Failed to load models:', err);
+  }
+}
+
+// Export new functions to window
+window.toggleSidebar = toggleSidebar;
+window.addModelToArena = addModelToArena;
+window.removeModelFromArena = removeModelFromArena;
+
+// ========== BLIND MODE UTILITIES ==========
+function generateBlindLabels(count) {
+  const labels = [];
+  for (let i = 0; i < count; i++) {
+    labels.push('Model ' + String.fromCharCode(65 + i)); // A, B, C, ...
+  }
+  return labels;
+}
+
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function createBlindMapping(instanceIds) {
+  const labels = generateBlindLabels(instanceIds.length);
+  const shuffledLabels = shuffleArray(labels);
+  const mapping = {};
+  instanceIds.forEach((id, idx) => {
+    mapping[id] = shuffledLabels[idx];
+  });
+  return mapping;
+}
+
+function loadBlindSession(sessionId) {
+  try {
+    const raw = localStorage.getItem(BLIND_SESSIONS_KEY);
+    const allSessions = raw ? JSON.parse(raw) : {};
+    return allSessions[sessionId] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveBlindSession(sessionId, blindState) {
+  try {
+    const raw = localStorage.getItem(BLIND_SESSIONS_KEY);
+    const allSessions = raw ? JSON.parse(raw) : {};
+    allSessions[sessionId] = blindState;
+    localStorage.setItem(BLIND_SESSIONS_KEY, JSON.stringify(allSessions));
+  } catch (e) {
+    console.error('Failed to save blind session:', e);
+  }
+}
+
+function getBlindLabel(instanceId) {
+  if (!blindModeEnabled || !blindSessionState || blindSessionState.revealed) {
+    return null;
+  }
+  
+  // Direct lookup
+  if (blindSessionState.mapping[instanceId]) {
+    return blindSessionState.mapping[instanceId];
+  }
+  
+  // Fallback: try to find by model name prefix (handles ID format differences)
+  const modelName = instanceId.split('__')[0];
+  for (const [id, label] of Object.entries(blindSessionState.mapping)) {
+    if (id.split('__')[0] === modelName) {
+      return label;
+    }
+  }
+  
+  return null;
+}
+
+// Helper to format hyperparams for display (condensed)
+function formatHyperparamsShort(inst) {
+  let parts = [`T=${inst.temperature}`, `P=${inst.top_p}`, `K=${inst.top_k}`];
+  // Only show non-default advanced params
+  if (inst.repeat_penalty !== DEFAULT_HYPERPARAMS.repeat_penalty) {
+    parts.push(`R=${inst.repeat_penalty}`);
+  }
+  if (inst.num_predict !== DEFAULT_HYPERPARAMS.num_predict) {
+    parts.push(`M=${inst.num_predict}`);
+  }
+  if (inst.seed !== DEFAULT_HYPERPARAMS.seed) {
+    parts.push(`S=${inst.seed}`);
+  }
+  return parts.join(' ');
+}
+
+function getDisplayName(instanceId, model) {
+  const blindLabel = getBlindLabel(instanceId);
+  if (blindLabel) {
+    // In blind mode, ONLY show the blind label - no hyperparams or model info
+    return blindLabel;
+  }
+  
+  // In blind mode but no label found - create one on the fly
+  if (blindModeEnabled && blindSessionState && !blindSessionState.revealed) {
+    const existingLabels = Object.values(blindSessionState.mapping);
+    const nextIdx = existingLabels.length;
+    const newLabel = 'Model ' + String.fromCharCode(65 + nextIdx);
+    blindSessionState.mapping[instanceId] = newLabel;
+    saveBlindSession(currentSessionId, blindSessionState);
+    return newLabel; // Return ONLY the label, no hyperparams
+  }
+  
+  // Normal mode: ALWAYS show all hyperparams for unique identification
+  const inst = modelInstances.find(i => i.id === instanceId);
+  if (inst) {
+    return `${model} (${formatHyperparamsShort(inst)})`;
+  }
+  
+  // Fallback: try to parse from instanceId
+  const parts = instanceId.split('__');
+  if (parts.length > 1) {
+    const paramParts = parts[1].split('_');
+    if (paramParts.length >= 3) {
+      return `${model} (T=${paramParts[0]} P=${paramParts[1]} K=${paramParts[2]})`;
+    }
+  }
+  
+  return model;
+}
+
+function hasCustomHyperparams(inst) {
+  return inst.temperature !== DEFAULT_HYPERPARAMS.temperature ||
+         inst.top_p !== DEFAULT_HYPERPARAMS.top_p ||
+         inst.top_k !== DEFAULT_HYPERPARAMS.top_k ||
+         inst.repeat_penalty !== DEFAULT_HYPERPARAMS.repeat_penalty ||
+         inst.num_predict !== DEFAULT_HYPERPARAMS.num_predict ||
+         inst.seed !== DEFAULT_HYPERPARAMS.seed;
+}
+
+// ========== MODEL INSTANCE UTILITIES ==========
+function generateInstanceId(model, params) {
+  // Create deterministic ID from model + hyperparams
+  const paramStr = `${params.temperature || DEFAULT_HYPERPARAMS.temperature}_${params.top_p || DEFAULT_HYPERPARAMS.top_p}_${params.top_k || DEFAULT_HYPERPARAMS.top_k}_${params.repeat_penalty || DEFAULT_HYPERPARAMS.repeat_penalty}_${params.num_predict !== undefined ? params.num_predict : DEFAULT_HYPERPARAMS.num_predict}_${params.seed || DEFAULT_HYPERPARAMS.seed}`;
+  return `${model}__${paramStr}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+
+function createModelInstance(model, params = {}) {
+  const inst = {
+    id: generateInstanceId(model, params),
+    model: model,
+    temperature: params.temperature !== undefined ? params.temperature : DEFAULT_HYPERPARAMS.temperature,
+    top_p: params.top_p !== undefined ? params.top_p : DEFAULT_HYPERPARAMS.top_p,
+    top_k: params.top_k !== undefined ? params.top_k : DEFAULT_HYPERPARAMS.top_k,
+    repeat_penalty: params.repeat_penalty !== undefined ? params.repeat_penalty : DEFAULT_HYPERPARAMS.repeat_penalty,
+    num_predict: params.num_predict !== undefined ? params.num_predict : DEFAULT_HYPERPARAMS.num_predict,
+    seed: params.seed !== undefined ? params.seed : DEFAULT_HYPERPARAMS.seed
+  };
+  return inst;
+}
+
+function isDuplicateInstance(newInst) {
+  return modelInstances.some(inst => inst.id === newInst.id);
+}
+
+function validateHyperparams(params) {
+  const errors = [];
+  if (params.temperature !== undefined && params.temperature <= 0) {
+    errors.push('Temperature must be > 0');
+  }
+  if (params.top_p !== undefined && (params.top_p <= 0 || params.top_p > 1)) {
+    errors.push('Top-p must be in (0, 1]');
+  }
+  if (params.top_k !== undefined && params.top_k < 0) {
+    errors.push('Top-k must be >= 0');
+  }
+  return errors;
+}
+
+function saveModelInstances() {
+  try {
+    localStorage.setItem(MODEL_INSTANCES_KEY, JSON.stringify(modelInstances));
+  } catch (e) {
+    console.error('Failed to save model instances:', e);
+  }
+}
+
+function loadModelInstances() {
+  try {
+    const raw = localStorage.getItem(MODEL_INSTANCES_KEY);
+    modelInstances = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    modelInstances = [];
+  }
+}
 
 // Markdown renderer - simple and safe
 function renderMarkdown(text) {
@@ -230,7 +622,8 @@ async function regenerateResponse(modelName, originalPrompt, bubbleId){
     const metricsDiv = document.getElementById(metricsId);
     if(metricsDiv && data.metrics){
       const tps = data.metrics.tokens_per_sec || 0;
-      metricsDiv.textContent = data.metrics.tokens + ' tok • ' + data.metrics.duration.toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s [Regenerated]';
+      const duration = data.metrics.duration_s || data.metrics.duration || 0;
+      metricsDiv.textContent = data.metrics.tokens + ' tok • ' + duration.toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s [Regenerated]';
       metricsDiv.style.display = 'block';
       metricsDiv.style.opacity = '1';
     }
@@ -244,7 +637,105 @@ async function regenerateResponse(modelName, originalPrompt, bubbleId){
   }
 }
 
-// Feature 4: Voting system
+// Regenerate response using model instance (with hyperparameters)
+async function regenerateInstanceResponse(instanceId, originalPrompt, bubbleId){
+  const s = sessions.find(x => x.id === currentSessionId);
+  if(!s) return;
+  
+  const bubble = document.getElementById(bubbleId);
+  if(!bubble) return;
+  
+  // Find the instance in current modelInstances
+  let inst = modelInstances.find(i => i.id === instanceId);
+  
+  // If not found, try to reconstruct from instanceId
+  if(!inst) {
+    // Parse instanceId format: model__temp_topp_topk
+    const parts = instanceId.split('__');
+    const modelName = parts[0];
+    let params = DEFAULT_HYPERPARAMS;
+    
+    if (parts.length > 1) {
+      const paramParts = parts[1].split('_');
+      if (paramParts.length >= 3) {
+        params = {
+          temperature: parseFloat(paramParts[0]) || DEFAULT_HYPERPARAMS.temperature,
+          top_p: parseFloat(paramParts[1]) || DEFAULT_HYPERPARAMS.top_p,
+          top_k: parseInt(paramParts[2]) || DEFAULT_HYPERPARAMS.top_k
+        };
+      }
+    }
+    
+    inst = {
+      id: instanceId,
+      model: modelName,
+      ...params
+    };
+  }
+  
+  // Show loading
+  bubble.innerHTML = '<span class="loading-spinner">⏳</span> Regenerating...';
+  
+  const currentSystem = s.system || systemEl.value;
+  
+  const payload = {
+    message: originalPrompt,
+    history: s.history.filter(h => h.role === 'system' || h.role === 'user'),
+    system: currentSystem,
+    model_instances: [inst]
+  };
+  
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    
+    if(!res.ok) throw new Error('Regeneration failed');
+    
+    const data = await res.json();
+    const newResponse = data.assistant || 'No response';
+    
+    bubble.innerHTML = renderMarkdown(newResponse);
+    
+    // Update metrics if available
+    const metricsId = bubbleId.replace('bubble-', 'metrics-');
+    const metricsDiv = document.getElementById(metricsId);
+    if(metricsDiv && data.metrics){
+      const tps = data.metrics.tokens_per_sec || 0;
+      const duration = data.metrics.duration_s || data.metrics.duration || 0;
+      metricsDiv.textContent = data.metrics.tokens + ' tok • ' + duration.toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s [Regenerated]';
+      metricsDiv.style.display = 'block';
+      metricsDiv.style.opacity = '1';
+    }
+    
+    showHelperText('✓ Response regenerated');
+    setTimeout(hideHelperText, 2000);
+  } catch(err) {
+    bubble.innerHTML = 'Error regenerating: ' + err.message;
+    showHelperText('⚠️ Failed to regenerate response');
+    setTimeout(hideHelperText, 3000);
+  }
+}
+
+// Continue with a specific model instance (switch to single model mode)
+function continueWithInstance(instanceId){
+  const inst = modelInstances.find(i => i.id === instanceId);
+  if(inst){
+    // Clear all instances and keep only this one
+    modelInstances = [inst];
+    saveModelInstances();
+    renderModelInstancesPanel();
+    showHelperText(`✓ Continuing with ${inst.model}`);
+    setTimeout(hideHelperText, 2000);
+  } else {
+    // Fallback: try to use as model name
+    continueWithModel(instanceId);
+  }
+}
+
+// Feature 4: Voting system (updated for Blind Mode)
 function loadVotes(){
   try {
     const raw = localStorage.getItem(VOTES_KEY);
@@ -254,24 +745,66 @@ function loadVotes(){
   }
 }
 
-function saveVote(sessionId, messageId, modelName, vote){
+function saveVote(sessionId, messageId, instanceId, vote){
+  // In blind mode, votes are only allowed and tied to blind labels
+  if (blindModeEnabled && blindSessionState && !blindSessionState.revealed) {
+    const blindLabel = blindSessionState.mapping[instanceId];
+    if (!blindLabel) return; // Safety check
+    
+    // Store vote in blind session state
+    if (!blindSessionState.votes) blindSessionState.votes = {};
+    const key = `${messageId}-${blindLabel}`;
+    blindSessionState.votes[key] = {
+      messageId,
+      blindLabel,
+      vote,
+      timestamp: Date.now()
+    };
+    saveBlindSession(sessionId, blindSessionState);
+    return;
+  }
+  
+  // Normal mode voting (non-blind)
   const votes = loadVotes();
-  const key = `${sessionId}-${messageId}-${modelName}`;
-  votes[key] = {sessionId, messageId, modelName, vote, timestamp: Date.now()};
+  const key = `${sessionId}-${messageId}-${instanceId}`;
+  votes[key] = {sessionId, messageId, instanceId, vote, timestamp: Date.now()};
   localStorage.setItem(VOTES_KEY, JSON.stringify(votes));
 }
 
-function getVote(sessionId, messageId, modelName){
+function getVote(sessionId, messageId, instanceId){
+  // In blind mode, check blind session votes
+  if (blindModeEnabled && blindSessionState && !blindSessionState.revealed) {
+    const blindLabel = blindSessionState.mapping[instanceId];
+    if (!blindLabel || !blindSessionState.votes) return null;
+    const key = `${messageId}-${blindLabel}`;
+    return blindSessionState.votes[key]?.vote || null;
+  }
+  
   const votes = loadVotes();
-  const key = `${sessionId}-${messageId}-${modelName}`;
+  const key = `${sessionId}-${messageId}-${instanceId}`;
   return votes[key]?.vote || null;
 }
 
-function getModelVoteStats(modelName){
+function getModelVoteStats(instanceId){
+  // In blind mode after reveal, show stats by blind label
+  if (blindSessionState && blindSessionState.revealed) {
+    const blindLabel = blindSessionState.mapping[instanceId];
+    let upCount = 0, downCount = 0;
+    if (blindSessionState.votes) {
+      Object.values(blindSessionState.votes).forEach(v => {
+        if (v.blindLabel === blindLabel) {
+          if (v.vote === 'up') upCount++;
+          if (v.vote === 'down') downCount++;
+        }
+      });
+    }
+    return {upCount, downCount, blindLabel};
+  }
+  
   const votes = loadVotes();
   let upCount = 0, downCount = 0;
   Object.values(votes).forEach(v => {
-    if(v.modelName === modelName){
+    if(v.instanceId === instanceId){
       if(v.vote === 'up') upCount++;
       if(v.vote === 'down') downCount++;
     }
@@ -279,13 +812,27 @@ function getModelVoteStats(modelName){
   return {upCount, downCount};
 }
 
-function handleVote(sessionId, messageId, modelName, voteType, buttonEl){
-  const currentVote = getVote(sessionId, messageId, modelName);
+function handleVote(sessionId, messageId, instanceId, voteType, buttonEl){
+  // Check if voting is allowed
+  if (blindModeEnabled && blindSessionState && blindSessionState.revealed) {
+    showHelperText('⚠️ Voting locked after reveal');
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  if (!blindModeEnabled) {
+    // In normal mode, voting is disabled (only allowed in blind mode)
+    showHelperText('⚠️ Enable Blind Mode for voting');
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  const currentVote = getVote(sessionId, messageId, instanceId);
   const newVote = currentVote === voteType ? null : voteType;
-  saveVote(sessionId, messageId, modelName, newVote);
+  saveVote(sessionId, messageId, instanceId, newVote);
   
   // Update UI
-  const container = buttonEl.closest('.vote-container');
+  const container = buttonEl.closest('.vote-container') || buttonEl.parentElement;
   if(container){
     const upBtn = container.querySelector('.vote-up');
     const downBtn = container.querySelector('.vote-down');
@@ -296,11 +843,509 @@ function handleVote(sessionId, messageId, modelName, voteType, buttonEl){
   }
   
   // Show feedback
-  const stats = getModelVoteStats(modelName);
-  const total = stats.upCount + stats.downCount;
-  if(total > 0){
-    showHelperText(`✓ You've liked this model ${stats.upCount} times`);
+  const blindLabel = getBlindLabel(instanceId);
+  showHelperText(`✓ Vote recorded for ${blindLabel || instanceId}`);
+  setTimeout(hideHelperText, 2000);
+}
+
+// ========== BLIND MODE UI FUNCTIONS ==========
+function toggleBlindMode() {
+  const checkbox = document.getElementById('blindModeToggle');
+  blindModeEnabled = checkbox ? checkbox.checked : !blindModeEnabled;
+  
+  if (blindModeEnabled && currentSessionId) {
+    // Try to load existing blind session
+    blindSessionState = loadBlindSession(currentSessionId);
+    
+    if (!blindSessionState) {
+      // Get instances to use (from modelInstances or legacy selection)
+      let instancesToUse = [];
+      if (modelInstances.length > 0) {
+        instancesToUse = [...modelInstances];
+      } else {
+        // Use legacy model selection
+        const selected = Array.from(modelEl.selectedOptions).map(o => o.value);
+        instancesToUse = selected.map(m => createModelInstance(m, DEFAULT_HYPERPARAMS));
+      }
+      
+      // Create blind session state (even if no instances yet - will be populated on first message)
+      const instanceIds = instancesToUse.map(i => i.id);
+      blindSessionState = {
+        sessionId: currentSessionId,
+        mapping: instanceIds.length > 0 ? createBlindMapping(instanceIds) : {},
+        revealed: false,
+        revealedAt: null,
+        votes: {}
+      };
+      saveBlindSession(currentSessionId, blindSessionState);
+    }
+    
+    showHelperText('🎭 Blind Mode enabled - model names will be hidden');
+  } else {
+    blindSessionState = null;
+    showHelperText('👁️ Blind Mode disabled');
+  }
+  
+  updateBlindModeUI();
+  renderSelectedModelsChips(); // Re-render chips to show/hide hyperparams
+  setTimeout(hideHelperText, 2000);
+  renderMessages();
+}
+
+function revealModels() {
+  if (!blindModeEnabled || !blindSessionState || blindSessionState.revealed) {
+    return;
+  }
+  
+  showConfirmDialog(
+    '🎭 Reveal all model identities? Voting will be locked permanently.',
+    () => {
+      blindSessionState.revealed = true;
+      blindSessionState.revealedAt = Date.now();
+      saveBlindSession(currentSessionId, blindSessionState);
+      
+      renderMessages();
+      updateBlindModeUI();
+      showRevealSummary();
+    }
+  );
+}
+
+function showRevealSummary() {
+  if (!blindSessionState || !blindSessionState.revealed) return;
+  
+  let summaryHtml = '<div class="reveal-summary"><h4>🎉 Model Reveal</h4><table class="reveal-table"><tr><th>Blind Label</th><th>Actual Model</th><th>Hyperparameters</th><th>Likes</th></tr>';
+  
+  // Get all instances and their stats
+  const instanceIds = Object.keys(blindSessionState.mapping);
+  instanceIds.forEach(instanceId => {
+    const blindLabel = blindSessionState.mapping[instanceId];
+    const inst = modelInstances.find(i => i.id === instanceId);
+    const model = inst ? inst.model : instanceId;
+    const stats = getModelVoteStats(instanceId);
+    
+    // Build hyperparameters string
+    let hyperparams = '';
+    if (inst) {
+      hyperparams = `T=${inst.temperature} P=${inst.top_p} K=${inst.top_k}`;
+      // Add non-default advanced params
+      if (inst.repeat_penalty !== DEFAULT_HYPERPARAMS.repeat_penalty) {
+        hyperparams += ` R=${inst.repeat_penalty}`;
+      }
+      if (inst.num_predict !== DEFAULT_HYPERPARAMS.num_predict) {
+        hyperparams += ` M=${inst.num_predict}`;
+      }
+      if (inst.seed !== DEFAULT_HYPERPARAMS.seed) {
+        hyperparams += ` S=${inst.seed}`;
+      }
+    }
+    
+    summaryHtml += `<tr><td>${blindLabel}</td><td>${model}</td><td><code style="font-size:0.8em;background:#f3f4f6;padding:2px 6px;border-radius:4px;">${hyperparams}</code></td><td>👍 ${stats.upCount}</td></tr>`;
+  });
+  
+  summaryHtml += '</table></div>';
+  
+  // Show as a modal or append to messages
+  showInfoModal('Model Reveal Results', summaryHtml);
+}
+
+function updateBlindModeUI() {
+  const blindToggle = document.getElementById('blindModeToggle');
+  const revealBtn = document.getElementById('revealModelsBtn');
+  const addModelRow = document.querySelector('.add-model-row');
+  const blindInline = document.getElementById('blindModeInline');
+  
+  if (blindToggle) {
+    blindToggle.checked = blindModeEnabled;
+  }
+  
+  const isBlindActive = blindModeEnabled && blindSessionState && !blindSessionState.revealed;
+  
+  if (revealBtn) {
+    revealBtn.style.display = isBlindActive ? 'inline-flex' : 'none';
+  }
+  
+  // Hide add model row in blind mode (but keep chips visible with blind labels)
+  if (addModelRow) {
+    addModelRow.style.display = isBlindActive ? 'none' : 'flex';
+  }
+  
+  // Add visual indicator when blind mode is active
+  if (blindInline) {
+    if (isBlindActive) {
+      blindInline.classList.add('active');
+    } else {
+      blindInline.classList.remove('active');
+    }
+  }
+}
+
+function showInfoModal(title, contentHtml) {
+  let modal = document.getElementById('infoModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'infoModal';
+    modal.className = 'confirm-modal';
+    document.body.appendChild(modal);
+  }
+  
+  modal.innerHTML = `
+    <div class="confirm-modal-content" style="max-width: 500px;">
+      <div class="confirm-modal-header">
+        <h3>${title}</h3>
+      </div>
+      <div class="confirm-modal-body">
+        ${contentHtml}
+      </div>
+      <div class="confirm-modal-footer">
+        <button id="infoModalClose" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  `;
+  
+  modal.style.display = 'flex';
+  
+  document.getElementById('infoModalClose').onclick = () => {
+    modal.style.display = 'none';
+  };
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  };
+}
+
+// ========== MODEL INSTANCE CONFIGURATION UI ==========
+function openInstanceConfigurator() {
+  let modal = document.getElementById('instanceConfigModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'instanceConfigModal';
+    modal.className = 'model-manager-modal';
+    document.body.appendChild(modal);
+  }
+  
+  renderInstanceConfigurator(modal);
+  modal.style.display = 'flex';
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) closeInstanceConfigurator();
+  };
+}
+
+function closeInstanceConfigurator() {
+  const modal = document.getElementById('instanceConfigModal');
+  if (modal) modal.style.display = 'none';
+  
+  // Update blind mode mapping if needed
+  if (blindModeEnabled && currentSessionId && modelInstances.length > 0) {
+    const instanceIds = modelInstances.map(i => i.id);
+    blindSessionState = {
+      sessionId: currentSessionId,
+      mapping: createBlindMapping(instanceIds),
+      revealed: false,
+      revealedAt: null,
+      votes: blindSessionState?.votes || {}
+    };
+    saveBlindSession(currentSessionId, blindSessionState);
+  }
+  
+  renderModelInstancesPanel();
+}
+
+function renderInstanceConfigurator(modal) {
+  let instancesHtml = '';
+  
+  if (modelInstances.length === 0) {
+    instancesHtml = '<div class="empty-state">No model instances configured. Add models below.</div>';
+  } else {
+    instancesHtml = '<div class="instances-list">';
+    modelInstances.forEach((inst, idx) => {
+      const displayName = blindModeEnabled && blindSessionState && !blindSessionState.revealed
+        ? blindSessionState.mapping[inst.id] || `Instance ${idx + 1}`
+        : inst.model;
+      
+      instancesHtml += `
+        <div class="instance-card" data-instance-id="${inst.id}">
+          <div class="instance-header">
+            <span class="instance-model">${displayName}</span>
+            <button class="btn btn-sm btn-outline-danger" onclick="removeModelInstance('${inst.id}')" title="Remove">✕</button>
+          </div>
+          <div class="instance-params">
+            <div class="param-row">
+              <label>🌡️ Temperature</label>
+              <input type="number" step="0.1" min="0.01" max="2" value="${inst.temperature}" 
+                     onchange="updateInstanceParam('${inst.id}', 'temperature', this.value)" />
+            </div>
+            <div class="param-row">
+              <label>📊 Top-p</label>
+              <input type="number" step="0.05" min="0.01" max="1" value="${inst.top_p}"
+                     onchange="updateInstanceParam('${inst.id}', 'top_p', this.value)" />
+            </div>
+            <div class="param-row">
+              <label>🔢 Top-k</label>
+              <input type="number" step="1" min="0" max="100" value="${inst.top_k}"
+                     onchange="updateInstanceParam('${inst.id}', 'top_k', this.value)" />
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    instancesHtml += '</div>';
+  }
+  
+  modal.innerHTML = `
+    <div class="model-manager-content">
+      <div class="model-manager-header">
+        <h2>⚙️ Model Instances</h2>
+        <button onclick="closeInstanceConfigurator()" class="close-btn">✕</button>
+      </div>
+      <div class="model-manager-body">
+        <div class="add-instance-section">
+          <h4>Add Model Instance</h4>
+          <div class="add-instance-form">
+            <select id="addInstanceModelSelect" class="form-select">
+              <option value="">Select a model...</option>
+            </select>
+            <div class="hyperparam-inputs">
+              <div class="param-input">
+                <label>🌡️ Temp</label>
+                <input type="number" id="addInstanceTemp" step="0.1" min="0.01" max="2" value="${DEFAULT_HYPERPARAMS.temperature}" />
+              </div>
+              <div class="param-input">
+                <label>📊 Top-p</label>
+                <input type="number" id="addInstanceTopP" step="0.05" min="0.01" max="1" value="${DEFAULT_HYPERPARAMS.top_p}" />
+              </div>
+              <div class="param-input">
+                <label>🔢 Top-k</label>
+                <input type="number" id="addInstanceTopK" step="1" min="0" max="100" value="${DEFAULT_HYPERPARAMS.top_k}" />
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="addModelInstanceFromForm()">+ Add Instance</button>
+          </div>
+        </div>
+        <hr />
+        <h4>Current Instances (${modelInstances.length})</h4>
+        ${instancesHtml}
+      </div>
+    </div>
+  `;
+  
+  // Populate model select
+  populateInstanceModelSelect();
+}
+
+function populateInstanceModelSelect() {
+  const select = document.getElementById('addInstanceModelSelect');
+  if (!select) return;
+  
+  select.innerHTML = '<option value="">Select a model...</option>';
+  
+  // Use installedModels if available, otherwise fallback to options from main model dropdown
+  let models = installedModels.length > 0 
+    ? installedModels 
+    : Array.from(modelEl.options).map(o => o.value).filter(v => v);
+  
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    select.appendChild(opt);
+  });
+  
+  // If still empty, try loading from API
+  if (models.length === 0) {
+    fetch('/api/models')
+      .then(res => res.json())
+      .then(data => {
+        installedModels = data.models || [];
+        installedModels.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          select.appendChild(opt);
+        });
+      })
+      .catch(err => console.error('Failed to load models:', err));
+  }
+}
+
+function addModelInstanceFromForm() {
+  const modelSelect = document.getElementById('addInstanceModelSelect');
+  const tempInput = document.getElementById('addInstanceTemp');
+  const topPInput = document.getElementById('addInstanceTopP');
+  const topKInput = document.getElementById('addInstanceTopK');
+  
+  if (!modelSelect || !modelSelect.value) {
+    showHelperText('⚠️ Please select a model');
     setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  const params = {
+    temperature: parseFloat(tempInput.value),
+    top_p: parseFloat(topPInput.value),
+    top_k: parseInt(topKInput.value)
+  };
+  
+  const errors = validateHyperparams(params);
+  if (errors.length > 0) {
+    showHelperText('⚠️ ' + errors.join(', '));
+    setTimeout(hideHelperText, 3000);
+    return;
+  }
+  
+  const inst = createModelInstance(modelSelect.value, params);
+  
+  if (isDuplicateInstance(inst)) {
+    showHelperText('⚠️ Duplicate instance: same model with same params already exists');
+    setTimeout(hideHelperText, 3000);
+    return;
+  }
+  
+  if (modelInstances.length >= 8) {
+    showHelperText('⚠️ Maximum 8 instances allowed');
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  modelInstances.push(inst);
+  saveModelInstances();
+  
+  // Reset form
+  modelSelect.value = '';
+  tempInput.value = DEFAULT_HYPERPARAMS.temperature;
+  topPInput.value = DEFAULT_HYPERPARAMS.top_p;
+  topKInput.value = DEFAULT_HYPERPARAMS.top_k;
+  
+  // Re-render
+  const modal = document.getElementById('instanceConfigModal');
+  if (modal) renderInstanceConfigurator(modal);
+  
+  showHelperText(`✓ Added ${inst.model} instance`);
+  setTimeout(hideHelperText, 2000);
+}
+
+window.addModelInstanceFromForm = addModelInstanceFromForm;
+
+function updateInstanceParam(instanceId, param, value) {
+  const inst = modelInstances.find(i => i.id === instanceId);
+  if (!inst) return;
+  
+  const numValue = param === 'top_k' ? parseInt(value) : parseFloat(value);
+  
+  // Validate
+  const testParams = {...inst, [param]: numValue};
+  const errors = validateHyperparams(testParams);
+  if (errors.length > 0) {
+    showHelperText('⚠️ ' + errors.join(', '));
+    setTimeout(hideHelperText, 2000);
+    return;
+  }
+  
+  // Check if this creates a duplicate
+  const oldId = inst.id;
+  inst[param] = numValue;
+  const newId = generateInstanceId(inst.model, inst);
+  
+  if (newId !== oldId) {
+    // Check for duplicate
+    if (modelInstances.some(i => i.id === newId && i !== inst)) {
+      // Revert
+      inst[param] = param === 'top_k' ? parseInt(value) : parseFloat(value);
+      showHelperText('⚠️ This would create a duplicate instance');
+      setTimeout(hideHelperText, 2000);
+      return;
+    }
+    inst.id = newId;
+  }
+  
+  saveModelInstances();
+  renderModelInstancesPanel();
+}
+
+window.updateInstanceParam = updateInstanceParam;
+window.populateInstanceModelSelect = populateInstanceModelSelect;
+
+function removeModelInstance(instanceId) {
+  modelInstances = modelInstances.filter(i => i.id !== instanceId);
+  saveModelInstances();
+  
+  const modal = document.getElementById('instanceConfigModal');
+  if (modal && modal.style.display !== 'none') {
+    renderInstanceConfigurator(modal);
+  }
+  renderModelInstancesPanel();
+  
+  showHelperText('✓ Instance removed');
+  setTimeout(hideHelperText, 2000);
+}
+
+window.removeModelInstance = removeModelInstance;
+
+function renderModelInstancesPanel() {
+  let panel = document.getElementById('modelInstancesPanel');
+  let chipsContainer = document.getElementById('instancesChips');
+  
+  if (!panel) {
+    // Use the one from HTML
+    panel = document.getElementById('modelInstancesPanel');
+    if (!panel) return;
+  }
+  if (!chipsContainer) {
+    chipsContainer = document.getElementById('instancesChips');
+    if (!chipsContainer) return;
+  }
+  
+  if (modelInstances.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+  
+  panel.style.display = 'block';
+  
+  let html = '';
+  
+  modelInstances.forEach(inst => {
+    const displayName = getDisplayName(inst.id, inst.model);
+    const paramsStr = `T=${inst.temperature} P=${inst.top_p} K=${inst.top_k}`;
+    
+    html += `
+      <div class="instance-chip" title="${paramsStr}">
+        <span class="chip-model">${displayName}</span>
+        <span class="chip-params">${paramsStr}</span>
+        <span class="chip-remove" onclick="removeModelInstance('${inst.id}')">✕</span>
+      </div>
+    `;
+  });
+  
+  chipsContainer.innerHTML = html;
+}
+
+// Quick add: add model with default params from dropdown selection
+function quickAddFromModelSelect() {
+  const selected = Array.from(modelEl.selectedOptions).map(o => o.value);
+  
+  selected.forEach(modelName => {
+    const inst = createModelInstance(modelName, DEFAULT_HYPERPARAMS);
+    if (!isDuplicateInstance(inst) && modelInstances.length < 8) {
+      modelInstances.push(inst);
+    }
+  });
+  
+  saveModelInstances();
+  renderModelInstancesPanel();
+  
+  // Update blind mode if enabled
+  if (blindModeEnabled && currentSessionId) {
+    const instanceIds = modelInstances.map(i => i.id);
+    blindSessionState = {
+      sessionId: currentSessionId,
+      mapping: createBlindMapping(instanceIds),
+      revealed: false,
+      revealedAt: null,
+      votes: blindSessionState?.votes || {}
+    };
+    saveBlindSession(currentSessionId, blindSessionState);
   }
 }
 
@@ -958,6 +2003,32 @@ function createSession(){
   inputEl.value = '';
   hideHelperText();
   
+  // Clear model instances for new session
+  modelInstances = [];
+  saveModelInstances();
+  renderSelectedModelsChips();
+  
+  // Reset hyperparameter inputs to defaults
+  const tempInput = document.getElementById('addModelTemp');
+  const topPInput = document.getElementById('addModelTopP');
+  const topKInput = document.getElementById('addModelTopK');
+  const repeatPenaltyInput = document.getElementById('addModelRepeatPenalty');
+  const numPredictInput = document.getElementById('addModelNumPredict');
+  const seedInput = document.getElementById('addModelSeed');
+  if (tempInput) tempInput.value = DEFAULT_HYPERPARAMS.temperature;
+  if (topPInput) topPInput.value = DEFAULT_HYPERPARAMS.top_p;
+  if (topKInput) topKInput.value = DEFAULT_HYPERPARAMS.top_k;
+  if (repeatPenaltyInput) repeatPenaltyInput.value = DEFAULT_HYPERPARAMS.repeat_penalty;
+  if (numPredictInput) numPredictInput.value = DEFAULT_HYPERPARAMS.num_predict;
+  if (seedInput) seedInput.value = DEFAULT_HYPERPARAMS.seed;
+  
+  // Reset blind mode for new session
+  blindModeEnabled = false;
+  blindSessionState = null;
+  updateBlindModeUI();
+  const blindToggle = document.getElementById('blindModeToggle');
+  if (blindToggle) blindToggle.checked = false;
+  
   // Clear uploaded files for new session
   uploadedFiles = [];
   renderFilesList();
@@ -1215,7 +2286,7 @@ function renderMessages(){
           metricsDiv.className = 'arena-metrics';
           if(resp.metrics) {
             const tps = resp.metrics.tokens_per_sec || 0;
-            metricsDiv.textContent = resp.metrics.tokens + ' tok • ' + resp.metrics.duration.toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s';
+            metricsDiv.textContent = resp.metrics.tokens + ' tok • ' + (resp.metrics.duration_s || resp.metrics.duration || 0).toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s';
             metricsDiv.style.display = 'block';
           } else {
             metricsDiv.style.display = 'none';
@@ -1337,7 +2408,7 @@ function append(role, text, modelName = null, metrics = null){
       metricsDiv.style.opacity = '0.7';
       metricsDiv.style.marginTop = '0.25rem';
       const tps = metrics.tokens_per_sec || 0;
-      metricsDiv.textContent = '📊 ' + metrics.tokens + ' tok • ' + metrics.duration.toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s';
+      metricsDiv.textContent = '📊 ' + metrics.tokens + ' tok • ' + (metrics.duration_s || metrics.duration || 0).toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s';
       d.appendChild(metricsDiv);
     }
   } else {
@@ -1365,12 +2436,56 @@ async function send(){
     autoNameSession(s.id, msg);
   }
   
-  // Get selected models FIRST
-  const selected = Array.from(modelEl.selectedOptions).map(o => o.value);
-  if(selected.length === 0) {
-    showHelperText('⚠️ Please select at least one model before sending');
+  // Use model instances if configured, otherwise fall back to selected models
+  let instancesToUse = [];
+  
+  if (modelInstances.length > 0) {
+    instancesToUse = [...modelInstances];
+  } else {
+    // Legacy: convert selected models to instances with default params
+    const selected = Array.from(modelEl.selectedOptions).map(o => o.value);
+    if(selected.length === 0) {
+      showHelperText('⚠️ Please configure model instances or select models');
+      setTimeout(hideHelperText, 3000);
+      return;
+    }
+    instancesToUse = selected.map(m => createModelInstance(m, DEFAULT_HYPERPARAMS));
+  }
+  
+  if (instancesToUse.length === 0) {
+    showHelperText('⚠️ Please configure at least one model instance');
     setTimeout(hideHelperText, 3000);
     return;
+  }
+  
+  // Initialize or update blind mode mapping if enabled
+  if (blindModeEnabled && currentSessionId) {
+    const instanceIds = instancesToUse.map(i => i.id);
+    
+    // Check if we need to create or update mapping
+    if (!blindSessionState || blindSessionState.sessionId !== currentSessionId) {
+      blindSessionState = {
+        sessionId: currentSessionId,
+        mapping: createBlindMapping(instanceIds),
+        revealed: false,
+        revealedAt: null,
+        votes: {}
+      };
+      saveBlindSession(currentSessionId, blindSessionState);
+    } else if (!blindSessionState.revealed) {
+      // Check if any new instances need to be added to mapping
+      instanceIds.forEach(id => {
+        if (!blindSessionState.mapping[id]) {
+          // Add new instance with next available label
+          const existingLabels = Object.values(blindSessionState.mapping);
+          const nextIdx = existingLabels.length;
+          blindSessionState.mapping[id] = 'Model ' + String.fromCharCode(65 + nextIdx);
+        }
+      });
+      saveBlindSession(currentSessionId, blindSessionState);
+    }
+    
+    updateBlindModeUI();
   }
   
   // Append user message after model check passes
@@ -1388,16 +2503,12 @@ async function send(){
         finalMessage += `\n\nFile: ${file.name}\n\`\`\`\n${file.content}\n\`\`\``;
       }
     });
-    // Note: Files remain attached for the conversation, user can manually remove them
   }
   
   inputEl.value = '';
   s.draft = '';
-  const models = selected;
   
   // Ensure system prompt is current in the session history
-  // Use s.system (the session's saved system prompt) not systemEl.value (current UI)
-  // This prevents overwriting when switching tabs while response is pending
   const currentSystem = s.system || systemEl.value;
   if(s.history.length === 0 || s.history[0].role !== 'system') {
     s.history.unshift({role: 'system', content: currentSystem});
@@ -1416,7 +2527,7 @@ async function send(){
   sendBtn.dataset.mode = 'stop';
   
   // Show helper text
-  if(models.length > 1) {
+  if(instancesToUse.length > 1) {
     showHelperText('⏳ Generating responses... This may take a moment with multiple models');
   } else {
     showHelperText('⏳ Generating response...');
@@ -1434,53 +2545,70 @@ async function send(){
   const streamMode = document.getElementById('streamMode') && document.getElementById('streamMode').checked;
   
   try {
-    // Determine if arena mode (multiple models) or single
-    const isArena = models.length > 1;
+    // Determine if arena mode (multiple instances) or single
+    const isArena = instancesToUse.length > 1;
     
     const payload = {
       message: finalMessage,
       history: s.history,
-      system: currentSystem
+      system: currentSystem,
+      model_instances: instancesToUse
     };
     
-    if(isArena) {
-      payload.models = models;
-    } else {
-      payload.model = models[0];
-    }
+    // Debug: log what we're sending
+    console.log('Sending model_instances:', JSON.stringify(instancesToUse, null, 2));
     
     // Create arena container if multiple models
     let arenaContainer = null;
     let metricsMap = {};
-    let bubbleIds = {}; // Map model name to unique bubble ID
+    let bubbleIds = {}; // Map instance id to unique bubble ID
     
     if(isArena){
-      const containerTimestamp = Date.now() + Math.random(); // Unique identifier for this message
+      const containerTimestamp = Date.now() + Math.random();
       arenaContainer = document.createElement('div');
       arenaContainer.className = 'arena-container';
       messagesEl.appendChild(arenaContainer);
       
-      models.forEach((m, idx) => {
+      // In blind mode, shuffle the display order so position doesn't reveal identity
+      let displayOrder = [...instancesToUse];
+      if (blindModeEnabled && blindSessionState && !blindSessionState.revealed) {
+        displayOrder = shuffleArray(displayOrder);
+      }
+      
+      displayOrder.forEach((inst, idx) => {
         const col = document.createElement('div');
         col.className = 'arena-col';
-        const uniqueSuffix = containerTimestamp + '-' + m.replace(/[^a-z0-9]/gi, '');
+        const uniqueSuffix = containerTimestamp + '-' + inst.id.replace(/[^a-z0-9]/gi, '');
         col.id = 'col-' + uniqueSuffix;
+        
+        // Get display name (blind label or model name)
+        const displayName = getDisplayName(inst.id, inst.model);
         
         const hdr = document.createElement('div');
         hdr.className = 'arena-hdr';
+        
+        // In blind mode, hide actions that would reveal model identity
+        const actionsHtml = blindModeEnabled && blindSessionState && !blindSessionState.revealed
+          ? `<div class="arena-actions">
+              <button class="arena-btn" onclick="copyToClipboard(document.getElementById('bubble-${uniqueSuffix}').textContent, this)" title="Copy response">
+                📋 Copy
+              </button>
+            </div>`
+          : `<div class="arena-actions">
+              <button class="arena-btn" onclick="copyToClipboard(document.getElementById('bubble-${uniqueSuffix}').textContent, this)" title="Copy response">
+                📋 Copy
+              </button>
+              <button class="arena-btn" onclick="continueWithInstance('${inst.id}')" title="Use only this model">
+                ⚡ Use
+              </button>
+              <button class="arena-btn" onclick="regenerateInstanceResponse('${inst.id}', '${msg.replace(/'/g, "\\'")}', 'bubble-${uniqueSuffix}')" title="Regenerate response">
+                🔄 Regen
+              </button>
+            </div>`;
+        
         hdr.innerHTML = `
-          <span class="arena-model-name">${m}</span>
-          <div class="arena-actions">
-            <button class="arena-btn" onclick="copyToClipboard(document.getElementById('bubble-${uniqueSuffix}').textContent, this)" title="Copy response">
-              📋 Copy
-            </button>
-            <button class="arena-btn" onclick="continueWithModel('${m}')" title="Use only this model">
-              ⚡ Use
-            </button>
-            <button class="arena-btn" onclick="regenerateResponse('${m}', '${msg.replace(/'/g, "\\'")}', 'bubble-${uniqueSuffix}')" title="Regenerate response">
-              🔄 Regen
-            </button>
-          </div>
+          <span class="arena-model-name">${displayName}</span>
+          ${actionsHtml}
         `;
         hdr.id = 'hdr-' + uniqueSuffix;
         col.appendChild(hdr);
@@ -1499,27 +2627,35 @@ async function send(){
         bubble.className = 'bubble';
         bubble.innerHTML = '<span class="loading-spinner">⏳</span> Generating...';
         bubble.id = 'bubble-' + uniqueSuffix;
-        bubbleIds[m] = 'bubble-' + uniqueSuffix;
+        bubbleIds[inst.id] = 'bubble-' + uniqueSuffix;
         respDiv.appendChild(bubble);
         col.appendChild(respDiv);
         
-        // Add voting buttons
+        // Add voting buttons (only functional in blind mode)
         const voteDiv = document.createElement('div');
         voteDiv.className = 'vote-container';
         const messageId = 'msg-' + uniqueSuffix;
-        const currentVote = getVote(currentSessionId, messageId, m);
+        const currentVote = getVote(currentSessionId, messageId, inst.id);
+        const voteDisabled = !blindModeEnabled || (blindSessionState && blindSessionState.revealed);
+        
         voteDiv.innerHTML = `
-          <button class="vote-btn vote-up ${currentVote === 'up' ? 'voted' : ''}" onclick="handleVote('${currentSessionId}', '${messageId}', '${m}', 'up', this)" title="Like this response">
+          <button class="vote-btn vote-up ${currentVote === 'up' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" 
+                  onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'up', this)" 
+                  title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Like this response'}"
+                  ${voteDisabled ? 'disabled' : ''}>
             👍
           </button>
-          <button class="vote-btn vote-down ${currentVote === 'down' ? 'voted' : ''}" onclick="handleVote('${currentSessionId}', '${messageId}', '${m}', 'down', this)" title="Dislike this response">
+          <button class="vote-btn vote-down ${currentVote === 'down' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" 
+                  onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'down', this)" 
+                  title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Dislike this response'}"
+                  ${voteDisabled ? 'disabled' : ''}>
             👎
           </button>
         `;
         col.appendChild(voteDiv);
         
         arenaContainer.appendChild(col);
-        metricsMap[m] = {tokens: 0, startTime: null, firstTokenTime: null, fullText: '', metrics: null};
+        metricsMap[inst.id] = {tokens: 0, startTime: null, firstTokenTime: null, fullText: '', metrics: null};
       });
     }
     
@@ -1552,14 +2688,14 @@ async function send(){
           
           try {
             const obj = JSON.parse(line);
-            const m = obj.model;
-            const safe_m = m.replace(/[^a-z0-9]/gi, '');
+            // Use instance_id for lookup (fallback to model for backward compat)
+            const instId = obj.instance_id || obj.model;
             
             if(obj.type === 'token'){
-              if(!metricsMap[m].startTime) {
-                metricsMap[m].startTime = performance.now();
+              if(!metricsMap[instId].startTime) {
+                metricsMap[instId].startTime = performance.now();
                 // Show metrics placeholder immediately on first token
-                const metricsId = bubbleIds[m] ? bubbleIds[m].replace('bubble-', 'metrics-') : null;
+                const metricsId = bubbleIds[instId] ? bubbleIds[instId].replace('bubble-', 'metrics-') : null;
                 const metricsDiv = metricsId ? document.getElementById(metricsId) : null;
                 if(metricsDiv) {
                   metricsDiv.innerHTML = '<span class="loading-spinner">⏱️</span> Calculating metrics...';
@@ -1567,20 +2703,20 @@ async function send(){
                   metricsDiv.style.opacity = '0.6';
                 }
               }
-              if(!metricsMap[m].firstTokenTime) metricsMap[m].firstTokenTime = performance.now();
+              if(!metricsMap[instId].firstTokenTime) metricsMap[instId].firstTokenTime = performance.now();
               
-              metricsMap[m].fullText += obj.token || '';
-              metricsMap[m].tokens += (obj.token || '').split(/\s+/).filter(Boolean).length;
+              metricsMap[instId].fullText += obj.token || '';
+              metricsMap[instId].tokens += (obj.token || '').split(/\s+/).filter(Boolean).length;
               
-              const bubbleId = bubbleIds[m];
+              const bubbleId = bubbleIds[instId];
               const bubble = document.getElementById(bubbleId);
               if(bubble) {
-                bubble.innerHTML = renderMarkdown(metricsMap[m].fullText);
+                bubble.innerHTML = renderMarkdown(metricsMap[instId].fullText);
                 messagesEl.scrollTop = messagesEl.scrollHeight;
               }
             }
             else if(obj.type === 'metrics'){
-              const metricsId = bubbleIds[m] ? bubbleIds[m].replace('bubble-', 'metrics-') : null;
+              const metricsId = bubbleIds[instId] ? bubbleIds[instId].replace('bubble-', 'metrics-') : null;
               const metricsDiv = metricsId ? document.getElementById(metricsId) : null;
               if(metricsDiv && obj.metrics){
                 const ftt = obj.metrics.first_token_time || 0;
@@ -1590,12 +2726,12 @@ async function send(){
                 metricsDiv.style.opacity = '1';
               }
               // Store metrics in metricsMap for history
-              if(metricsMap[m]) {
-                metricsMap[m].metrics = obj.metrics;
+              if(metricsMap[instId]) {
+                metricsMap[instId].metrics = obj.metrics;
               }
             }
             else if(obj.type === 'error'){
-              const bubbleId = bubbleIds[m];
+              const bubbleId = bubbleIds[instId];
               const bubble = document.getElementById(bubbleId);
               if(bubble) bubble.textContent = 'Error: ' + obj.error;
             }
@@ -1603,9 +2739,15 @@ async function send(){
         }
       }
       
-      // Save to history with metrics
-      models.forEach(m => {
-        s.history.push({role: 'assistant', content: metricsMap[m].fullText, model: m, metrics: metricsMap[m].metrics});
+      // Save to history with metrics - use instance info
+      instancesToUse.forEach(inst => {
+        s.history.push({
+          role: 'assistant', 
+          content: metricsMap[inst.id].fullText, 
+          model: inst.model,
+          instance_id: inst.id,
+          metrics: metricsMap[inst.id].metrics
+        });
       });
     }
     else if(streamMode){
@@ -1657,7 +2799,9 @@ async function send(){
       }
       
       // After streaming completes, add action buttons
-      const modelName = models[0];
+      const singleInst = instancesToUse[0];
+      const modelName = singleInst.model;
+      const displayName = getDisplayName(singleInst.id, singleInst.model);
       const uniqueId = 'bubble-' + Date.now() + '-' + Math.random().toString(36).slice(2);
       assistantBubble.id = uniqueId;
       
@@ -1679,41 +2823,46 @@ async function send(){
       };
       actionBar.appendChild(copyBtn);
       
-      // Regenerate button
-      const regenBtn = document.createElement('button');
-      regenBtn.className = 'action-btn';
-      regenBtn.innerHTML = '🔄 Regen';
-      regenBtn.title = 'Regenerate response';
-      regenBtn.onclick = function() {
-        regenerateResponse(modelName, msg, uniqueId);
-      };
-      actionBar.appendChild(regenBtn);
+      // Regenerate button (hidden in blind mode)
+      if (!blindModeEnabled || !blindSessionState || blindSessionState.revealed) {
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'action-btn';
+        regenBtn.innerHTML = '🔄 Regen';
+        regenBtn.title = 'Regenerate response';
+        regenBtn.onclick = function() {
+          regenerateInstanceResponse(singleInst.id, msg, uniqueId);
+        };
+        actionBar.appendChild(regenBtn);
+      }
       
       // Vote buttons
       const messageId = uniqueId;
-      const currentVote = getVote(currentSessionId, messageId, modelName);
+      const currentVote = getVote(currentSessionId, messageId, singleInst.id);
+      const voteDisabled = !blindModeEnabled || (blindSessionState && blindSessionState.revealed);
       
       const voteUpBtn = document.createElement('button');
-      voteUpBtn.className = 'vote-btn vote-up' + (currentVote === 'up' ? ' voted' : '');
+      voteUpBtn.className = 'vote-btn vote-up' + (currentVote === 'up' ? ' voted' : '') + (voteDisabled ? ' disabled' : '');
       voteUpBtn.innerHTML = '👍';
-      voteUpBtn.title = 'Like this response';
+      voteUpBtn.title = voteDisabled ? 'Enable Blind Mode to vote' : 'Like this response';
+      voteUpBtn.disabled = voteDisabled;
       voteUpBtn.onclick = function() {
-        handleVote(currentSessionId, messageId, modelName, 'up', this);
+        handleVote(currentSessionId, messageId, singleInst.id, 'up', this);
       };
       actionBar.appendChild(voteUpBtn);
       
       const voteDownBtn = document.createElement('button');
-      voteDownBtn.className = 'vote-btn vote-down' + (currentVote === 'down' ? ' voted' : '');
+      voteDownBtn.className = 'vote-btn vote-down' + (currentVote === 'down' ? ' voted' : '') + (voteDisabled ? ' disabled' : '');
       voteDownBtn.innerHTML = '👎';
-      voteDownBtn.title = 'Dislike this response';
+      voteDownBtn.title = voteDisabled ? 'Enable Blind Mode to vote' : 'Dislike this response';
+      voteDownBtn.disabled = voteDisabled;
       voteDownBtn.onclick = function() {
-        handleVote(currentSessionId, messageId, modelName, 'down', this);
+        handleVote(currentSessionId, messageId, singleInst.id, 'down', this);
       };
       actionBar.appendChild(voteDownBtn);
       
       assistantMsg.appendChild(actionBar);
       
-      s.history.push({role: 'assistant', content: fullText, model: modelName});
+      s.history.push({role: 'assistant', content: fullText, model: modelName, instance_id: singleInst.id});
     }
     else {
       // Non-streaming mode (current implementation)
@@ -1725,17 +2874,41 @@ async function send(){
       });
       
       if(!res.ok){
-        append('assistant', 'Error: ' + res.status);
+        const errorMsg = 'Error: ' + res.status;
+        // Update all arena bubbles with error if they exist
+        if(bubbleIds && Object.keys(bubbleIds).length > 0) {
+          Object.values(bubbleIds).forEach(bubbleId => {
+            const bubble = document.getElementById(bubbleId);
+            if(bubble) {
+              bubble.innerHTML = `<span style="color: #ef4444;">❌ ${errorMsg}</span>`;
+            }
+          });
+        } else {
+          append('assistant', errorMsg);
+        }
       } else {
         const data = await res.json();
         if(data.error){
-          append('assistant', 'Error: ' + data.error);
+          const errorMsg = 'Error: ' + data.error;
+          // Update all arena bubbles with error if they exist
+          if(bubbleIds && Object.keys(bubbleIds).length > 0) {
+            Object.values(bubbleIds).forEach(bubbleId => {
+              const bubble = document.getElementById(bubbleId);
+              if(bubble) {
+                bubble.innerHTML = `<span style="color: #ef4444;">❌ ${errorMsg}</span>`;
+              }
+            });
+          } else {
+            append('assistant', errorMsg);
+          }
         } else if(data.results){
-          // Arena mode: multiple model responses
-          models.forEach((m, idx) => {
-            const respText = data.results[m] ? data.results[m].assistant : 'Error: ' + (data.errors && data.errors[m] || 'no response');
-            const metrics = data.results[m] ? data.results[m].metrics : null;
-            const bubbleId = bubbleIds[m];
+          // Arena mode: multiple model instance responses
+          instancesToUse.forEach((inst, idx) => {
+            // Look up result by instance_id
+            const instResult = data.results[inst.id];
+            const respText = instResult ? instResult.assistant : 'Error: ' + (data.errors && data.errors[inst.id] || 'no response');
+            const metrics = instResult ? instResult.metrics : null;
+            const bubbleId = bubbleIds[inst.id];
             const bubble = document.getElementById(bubbleId);
             if(bubble) {
               bubble.innerHTML = renderMarkdown(respText);
@@ -1747,7 +2920,7 @@ async function send(){
             if(metricsDiv) {
               if(metrics) {
                 const tps = metrics.tokens_per_sec || 0;
-                metricsDiv.textContent = metrics.tokens + ' tok • ' + metrics.duration.toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s';
+                metricsDiv.textContent = metrics.tokens + ' tok • ' + (metrics.duration_s || metrics.duration || 0).toFixed(2) + 's • ' + tps.toFixed(1) + ' t/s';
                 metricsDiv.style.display = 'block';
                 metricsDiv.style.opacity = '1';
               } else {
@@ -1759,17 +2932,18 @@ async function send(){
             }
             
             // Store with metrics in history
-            s.history.push({role: 'assistant', content: respText, model: m, metrics: metrics});
+            s.history.push({role: 'assistant', content: respText, model: inst.model, instance_id: inst.id, metrics: metrics});
           });
         } else {
           // Single model response
           const assistant = data.assistant || '(no response)';
-          const modelName = models[0]; // Single model name
-          append('assistant', assistant, modelName, data.metrics);
+          const singleInst = instancesToUse[0];
+          const displayName = getDisplayName(singleInst.id, singleInst.model);
+          append('assistant', assistant, displayName, data.metrics);
           if(data.history) s.history = data.history;
           else {
             // Store with metrics and model name if available
-            s.history.push({role: 'assistant', content: assistant, model: modelName, metrics: data.metrics});
+            s.history.push({role: 'assistant', content: assistant, model: singleInst.model, instance_id: singleInst.id, metrics: data.metrics});
           }
         }
       }
@@ -1819,8 +2993,19 @@ async function send(){
       showHelperText('Generation cancelled');
       setTimeout(hideHelperText, 3000);
     } else {
-      append('assistant', 'Error: ' + err.message);
-      showHelperText('⚠️ Error: ' + err.message);
+      // Update all arena bubbles with error if they exist
+      const errorMsg = err.message || 'Unknown error';
+      if(bubbleIds && Object.keys(bubbleIds).length > 0) {
+        Object.values(bubbleIds).forEach(bubbleId => {
+          const bubble = document.getElementById(bubbleId);
+          if(bubble && (bubble.innerHTML.includes('Generating') || bubble.innerHTML.includes('⏳'))) {
+            bubble.innerHTML = `<span style="color: #ef4444;">❌ Error: ${errorMsg}</span>`;
+          }
+        });
+      } else {
+        append('assistant', 'Error: ' + errorMsg);
+      }
+      showHelperText('⚠️ Error: ' + errorMsg);
       setTimeout(hideHelperText, 5000);
     }
   } finally {
@@ -1893,8 +3078,96 @@ exportBtn.addEventListener('click', () => {
   const s = sessions.find(x => x.id === currentSessionId);
   if(!s) return;
   
-  const filename = (s.title || 'chat') + '.json';
-  const blob = new Blob([JSON.stringify(s, null, 2)], {type: 'application/json'});
+  const isBlindActive = blindModeEnabled && blindSessionState && !blindSessionState.revealed;
+  
+  // Create export object with session data
+  let exportData = {
+    ...s,
+    exportedAt: new Date().toISOString()
+  };
+  
+  // In blind mode (not revealed), mask all model names and instance IDs
+  if (isBlindActive) {
+    // Mask history entries
+    exportData.history = s.history.map(entry => {
+      if (entry.role === 'assistant' && entry.instance_id) {
+        const blindLabel = blindSessionState.mapping[entry.instance_id] || 'Unknown Model';
+        return {
+          ...entry,
+          model: blindLabel,
+          instance_id: blindLabel,
+          _originalInstanceId: undefined // Remove any trace
+        };
+      }
+      return entry;
+    });
+    
+    // Mask model instances
+    exportData.modelInstances = modelInstances.map((inst, idx) => {
+      const blindLabel = blindSessionState.mapping[inst.id] || `Model ${String.fromCharCode(65 + idx)}`;
+      return {
+        id: blindLabel,
+        model: blindLabel,
+        // Keep hyperparams but masked
+        temperature: inst.temperature,
+        top_p: inst.top_p,
+        top_k: inst.top_k,
+        repeat_penalty: inst.repeat_penalty,
+        num_predict: inst.num_predict,
+        seed: inst.seed
+      };
+    });
+    
+    exportData.blindMode = {
+      enabled: true,
+      revealed: false,
+      mapping: Object.fromEntries(
+        Object.entries(blindSessionState.mapping).map(([instId, label]) => [label, label])
+      ),
+      votes: blindSessionState.votes ? Object.fromEntries(
+        Object.entries(blindSessionState.votes).map(([key, value]) => {
+          // Replace instance IDs in vote keys with blind labels
+          const parts = key.split('_');
+          const instId = parts[parts.length - 1];
+          const blindLabel = blindSessionState.mapping[instId] || instId;
+          const newKey = parts.slice(0, -1).join('_') + '_' + blindLabel;
+          return [newKey, value];
+        })
+      ) : {}
+    };
+  } else {
+    // Normal export or revealed blind mode
+    exportData.modelInstances = modelInstances;
+    
+    // Include blind mode data if revealed
+    if (blindSessionState && blindSessionState.revealed) {
+      exportData.blindMode = {
+        enabled: true,
+        revealed: true,
+        mapping: blindSessionState.mapping,
+        votes: blindSessionState.votes,
+        revealedAt: new Date(blindSessionState.revealedAt).toISOString()
+      };
+      
+      // Add vote statistics per model
+      exportData.voteStats = {};
+      Object.keys(blindSessionState.mapping).forEach(instanceId => {
+        const blindLabel = blindSessionState.mapping[instanceId];
+        const inst = modelInstances.find(i => i.id === instanceId);
+        const model = inst ? inst.model : instanceId;
+        const stats = getModelVoteStats(instanceId);
+        exportData.voteStats[blindLabel] = {
+          actualModel: model,
+          instanceId: instanceId,
+          upvotes: stats.upCount,
+          downvotes: stats.downCount
+        };
+      });
+    }
+  }
+  
+  const filename = (s.title || 'chat') + (isBlindActive ? '_blind' : '') + '.json';
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1904,7 +3177,7 @@ exportBtn.addEventListener('click', () => {
   
   if(statusEl){
     statusEl.style.display = 'block';
-    statusEl.innerHTML = `✅ Exported as <strong>${filename}</strong>`;
+    statusEl.innerHTML = `✅ Exported as <strong>${filename}</strong>${isBlindActive ? ' (blind mode - models masked)' : ''}`;
     setTimeout(() => statusEl.style.display = 'none', 3000);
   }
 });
@@ -1968,7 +3241,7 @@ if(streamToggle) {
 
 // Load models
 function loadModels(){
-  fetch('/api/models')
+  return fetch('/api/models')
     .then(r => r.json())
     .then(j => {
       if(j.models && j.models.length){
@@ -1979,13 +3252,16 @@ function loadModels(){
           o.textContent = m;
           modelEl.appendChild(o);
         });
+        return j.models;
       } else {
         modelEl.innerHTML = '<option disabled>No models found</option>';
+        return [];
       }
     })
     .catch(err => {
       console.error('Model load error:', err);
       modelEl.innerHTML = '<option disabled>Error loading models</option>';
+      return [];
     });
 }
 
@@ -2062,9 +3338,25 @@ window.copyToClipboard = copyToClipboard;
 window.continueWithModel = continueWithModel;
 window.regenerateResponse = regenerateResponse;
 window.handleVote = handleVote;
+window.regenerateInstanceResponse = regenerateInstanceResponse;
+window.continueWithInstance = continueWithInstance;
+window.toggleBlindMode = toggleBlindMode;
+window.revealModels = revealModels;
+window.openInstanceConfigurator = openInstanceConfigurator;
+window.closeInstanceConfigurator = closeInstanceConfigurator;
+window.addModelInstanceFromForm = addModelInstanceFromForm;
+window.removeModelInstance = removeModelInstance;
 
 function init(){
   console.log('Initializing app...');
+  
+  // Load sidebar state
+  loadSidebarState();
+  
+  // Load model instances first
+  loadModelInstances();
+  console.log('Model instances loaded:', modelInstances.length);
+  
   loadSessions();
   console.log('Sessions loaded:', sessions.length);
   if(sessions.length === 0) {
@@ -2078,17 +3370,35 @@ function init(){
     // Restore system prompt from saved session
     systemEl.value = s.system || 'You are a sharp teacher like Richard Feynman.';
     
-    // Restore model selection
+    // Restore model selection (for compatibility)
     const savedModels = s.models || [];
     Array.from(modelEl.options).forEach(opt => {
       opt.selected = savedModels.includes(opt.value);
     });
-    updateModelBadge();
     
     renderSessionsList();
     renderMessages();
+    
+    // Load blind mode state for this session
+    const savedBlindState = loadBlindSession(currentSessionId);
+    if(savedBlindState){
+      blindSessionState = savedBlindState;
+      blindModeEnabled = true;
+      const blindToggle = document.getElementById('blindModeToggle');
+      if (blindToggle) blindToggle.checked = true;
+      updateBlindModeUI();
+    }
   }
+  
+  // Render selected models chips
+  renderSelectedModelsChips();
+  
+  // Populate the model dropdown (fetch models from API)
+  populateModelDropdown();
+  
+  // Also load models into hidden select for compatibility
   loadModels();
+  
   console.log('App initialized');
 }
 
@@ -2098,4 +3408,3 @@ if(document.readyState === 'loading'){
 } else {
   init();
 }
-

@@ -22,6 +22,8 @@ Thank you for your interest in contributing to Ollama Arena! This document provi
 
 ## 🚀 Getting Started
 
+> **Note**: This project uses [Ollama](https://ollama.ai) (© Ollama, Inc.) as the inference engine. Ensure you have Ollama installed and running locally.
+
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/ollama-arena.git`
 3. Add upstream remote: `git remote add upstream https://github.com/ORIGINAL/ollama-arena.git`
