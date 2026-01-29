@@ -4,8 +4,12 @@ Handles all communication with Ollama API.
 """
 import subprocess
 from typing import List, Dict, Any, Optional, Generator
+import concurrent.futures
 import ollama
 from logger import get_logger
+from config import get_config
+
+config = get_config()
 
 logger = get_logger('ollama_service')
 
@@ -124,7 +128,16 @@ class OllamaService:
             if options:
                 kwargs['options'] = options
             
-            response = ollama.chat(**kwargs)
+            # Run ollama.chat in a thread with timeout to avoid blocking the server
+            timeout = getattr(config, 'REQUEST_TIMEOUT', 90)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(ollama.chat, **kwargs)
+                try:
+                    response = future.result(timeout=timeout)
+                except concurrent.futures.TimeoutError:
+                    logger.error(f"Ollama chat timed out after {timeout} seconds for model {model}")
+                    raise TimeoutError(f"Ollama chat timed out after {timeout} seconds")
+
             content = OllamaService._extract_assistant_text(response)
             
             result = {'content': content}

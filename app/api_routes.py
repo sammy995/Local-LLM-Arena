@@ -236,6 +236,9 @@ def stream_chat():
             """Stream tokens from a single model instance."""
             instance_id = inst.get('id')
             model = inst.get('model', instance_id)
+            start_time = time.time()
+            first_token_time = None
+            token_count = 0
             
             # Build options from hyperparameters
             options = {}
@@ -254,23 +257,40 @@ def stream_chat():
             
             try:
                 for token in ollama_service.chat_stream(model, messages, options=options):
+                    if first_token_time is None:
+                        first_token_time = time.time()
+                    token_count += len(token.split())
                     token_queue.put({
+                        'type': 'token',
                         'model': model,
                         'instance_id': instance_id,
                         'token': token,
                         'done': False
                     })
-                
+
+                end_time = time.time()
+                duration_s = end_time - start_time
+                first_token_delta = (first_token_time - start_time) if first_token_time else duration_s
+                tokens_per_sec = (token_count / duration_s) if duration_s > 0 else 0
+
                 token_queue.put({
+                    'type': 'metrics',
                     'model': model,
                     'instance_id': instance_id,
                     'token': '',
+                    'metrics': {
+                        'tokens': token_count,
+                        'duration_s': duration_s,
+                        'first_token_time': first_token_delta,
+                        'tokens_per_sec': round(tokens_per_sec, 2)
+                    },
                     'done': True
                 })
-                
+
             except Exception as e:
                 logger.error(f"Stream error for {model}: {e}")
                 token_queue.put({
+                    'type': 'error',
                     'model': model,
                     'instance_id': instance_id,
                     'error': str(e),
@@ -303,10 +323,14 @@ def stream_chat():
                         break
                     continue
         
-        return Response(
+        response = Response(
             stream_with_context(event_stream()),
             mimetype='application/x-ndjson'
         )
+        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['X-Accel-Buffering'] = 'no'
+        response.headers['Connection'] = 'keep-alive'
+        return response
         
     except Exception as e:
         logger.error(f"Stream chat error: {e}")

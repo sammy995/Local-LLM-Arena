@@ -1,4 +1,4 @@
-# Ollama Arena — Local Multi-Model AI Comparison Platform
+# Local LLM Arena — Local Multi-Model AI Comparison Platform
 
 A privacy-first, local-only web application for side-by-side evaluation of multiple AI models via Ollama, with **blind evaluation**, **per-model hyperparameters**, and exportable results.
 

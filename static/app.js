@@ -914,7 +914,7 @@ function revealModels() {
 function showRevealSummary() {
   if (!blindSessionState || !blindSessionState.revealed) return;
   
-  let summaryHtml = '<div class="reveal-summary"><h4>🎉 Model Reveal</h4><table class="reveal-table"><tr><th>Blind Label</th><th>Actual Model</th><th>Hyperparameters</th><th>Likes</th></tr>';
+  let summaryHtml = '<div class="reveal-summary"><h4>🎉 Model Reveal</h4><div class="reveal-table-container"><table class="reveal-table"><tr><th>Blind Label</th><th>Actual Model</th><th>Hyperparameters</th><th>Likes</th><th>Dislikes</th></tr>';
   
   // Get all instances and their stats
   const instanceIds = Object.keys(blindSessionState.mapping);
@@ -924,26 +924,32 @@ function showRevealSummary() {
     const model = inst ? inst.model : instanceId;
     const stats = getModelVoteStats(instanceId);
     
-    // Build hyperparameters string
+    // Build hyperparameters string - format more compactly
     let hyperparams = '';
     if (inst) {
-      hyperparams = `T=${inst.temperature} P=${inst.top_p} K=${inst.top_k}`;
+      const params = [];
+      params.push(`T=${inst.temperature}`);
+      params.push(`P=${inst.top_p}`);
+      params.push(`K=${inst.top_k}`);
+      
       // Add non-default advanced params
       if (inst.repeat_penalty !== DEFAULT_HYPERPARAMS.repeat_penalty) {
-        hyperparams += ` R=${inst.repeat_penalty}`;
+        params.push(`R=${inst.repeat_penalty}`);
       }
       if (inst.num_predict !== DEFAULT_HYPERPARAMS.num_predict) {
-        hyperparams += ` M=${inst.num_predict}`;
+        params.push(`M=${inst.num_predict}`);
       }
       if (inst.seed !== DEFAULT_HYPERPARAMS.seed) {
-        hyperparams += ` S=${inst.seed}`;
+        params.push(`S=${inst.seed}`);
       }
+      
+      hyperparams = params.join(' • ');
     }
     
-    summaryHtml += `<tr><td>${blindLabel}</td><td>${model}</td><td><code style="font-size:0.8em;background:#f3f4f6;padding:2px 6px;border-radius:4px;">${hyperparams}</code></td><td>👍 ${stats.upCount}</td></tr>`;
+    summaryHtml += `<tr><td>${blindLabel}</td><td>${model}</td><td><small style="color:var(--text-muted);font-size:0.75em;">${hyperparams}</small></td><td class="votes-up">👍 ${stats.upCount}</td><td class="votes-down">👎 ${stats.downCount}</td></tr>`;
   });
   
-  summaryHtml += '</table></div>';
+  summaryHtml += '</table></div></div>';
   
   // Show as a modal or append to messages
   showInfoModal('Model Reveal Results', summaryHtml);
@@ -989,8 +995,13 @@ function showInfoModal(title, contentHtml) {
     document.body.appendChild(modal);
   }
   
+  let modalMaxWidth = '500px';
+  try {
+    if (title && title.toLowerCase().includes('reveal')) modalMaxWidth = '1100px';
+  } catch(e) {}
+
   modal.innerHTML = `
-    <div class="confirm-modal-content" style="max-width: 500px;">
+    <div class="confirm-modal-content" style="max-width: ${modalMaxWidth};">
       <div class="confirm-modal-header">
         <h3>${title}</h3>
       </div>
@@ -1979,7 +1990,7 @@ window.deleteModel = function(modelName) {
 
 // Session management
 function createSession(){
-  const DEFAULT_SYSTEM = 'You are a sharp teacher like Richard Feynman.';
+  const DEFAULT_SYSTEM = 'You are a helpful assistant.';
   
   const s = {
     id: makeId(),
@@ -2042,10 +2053,16 @@ function selectSession(id){
   const s = sessions.find(x => x.id === id);
   if(!s) return;
   persistDraft();
+  
+  // Abort any ongoing streaming when switching sessions
+  if(abortController) {
+    abortController.abort();
+  }
+  
   currentSessionId = id;
   
   // Restore system prompt
-  systemEl.value = s.system || 'You are a sharp teacher like Richard Feynman.';
+  systemEl.value = s.system || 'You are a helpful assistant.';
   
   // Restore model selection
   const savedModels = s.models || [];
@@ -2248,6 +2265,15 @@ function renderMessages(){
   // Clear all messages
   messagesEl.innerHTML = '';
   
+  // Find the last user message index
+  let lastUserIndex = -1;
+  for(let j = 0; j < (s.history || []).length; j++) {
+    if(s.history[j].role === 'user') lastUserIndex = j;
+  }
+  
+  // Clear all messages
+  messagesEl.innerHTML = '';
+  
   // Group assistant messages by timestamp to detect arena responses
   let i = 0;
   while(i < (s.history || []).length) {
@@ -2255,7 +2281,7 @@ function renderMessages(){
     
     if(m.role === 'user') {
       // Render user message
-      append('user', m.content || '');
+      append('user', m.content || '', null, null, i === lastUserIndex);
       i++;
     } else if(m.role === 'assistant') {
       // Check if this is part of an arena group (multiple models with same timestamp)
@@ -2272,16 +2298,85 @@ function renderMessages(){
       if(arenaGroup.length > 1) {
         const arenaContainer = document.createElement('div');
         arenaContainer.className = 'arena-container';
-        
+
+        // Find the user prompt that this arena group is responding to.
+        // First try the message immediately before the group; if not found,
+        // fall back to the last user message prior to this group's index.
+        let userPrompt = '';
+        const beforeIdx = (i - arenaGroup.length) - 1;
+        if (beforeIdx >= 0) {
+          for (let j = beforeIdx; j >= 0; j--) {
+            if (s.history[j] && s.history[j].role === 'user') {
+              userPrompt = s.history[j].content || '';
+              break;
+            }
+          }
+        }
+        if (!userPrompt) {
+          for (let j = i - 1; j >= 0; j--) {
+            if (s.history[j] && s.history[j].role === 'user') {
+              userPrompt = s.history[j].content || '';
+              break;
+            }
+          }
+        }
+
         arenaGroup.forEach((resp, idx) => {
           const col = document.createElement('div');
           col.className = 'arena-col';
-          
+
           const hdr = document.createElement('div');
           hdr.className = 'arena-hdr';
-          hdr.textContent = resp.model;
-          col.appendChild(hdr);
+          hdr.textContent = resp.model || resp.instance_id || 'Model';
+
+          // Add header action buttons (copy / use / regen) to keep actions in header only
+          const hdrActions = document.createElement('div');
+          hdrActions.className = 'arena-actions';
+
+          const hdrCopy = document.createElement('button');
+          hdrCopy.className = 'arena-btn';
+          hdrCopy.title = 'Copy response';
+          hdrCopy.innerHTML = '📋 Copy';
+          hdrCopy.onclick = function() { copyToClipboard(resp.content || '', this); };
+          hdrActions.appendChild(hdrCopy);
+
+          if(resp.instance_id) {
+            const hdrUse = document.createElement('button');
+            hdrUse.className = 'arena-btn';
+            hdrUse.title = 'Use only this model';
+            hdrUse.innerHTML = '⚡ Use';
+            hdrUse.onclick = function() { continueWithInstance(resp.instance_id); };
+            hdrActions.appendChild(hdrUse);
+
+            const hdrRegen = document.createElement('button');
+            hdrRegen.className = 'arena-btn';
+            hdrRegen.title = 'Regenerate response';
+            hdrRegen.innerHTML = '🔄 Regen';
+            hdrRegen.onclick = function() { regenerateInstanceResponse(resp.instance_id, userPrompt || '', bubbleId); };
+            hdrActions.appendChild(hdrRegen);
           
+            // Vote buttons (like / dislike) in header so they remain visible
+            const messageId = 'msg-' + (resp.instance_id || resp.model || idx);
+            const currentVote = getVote(currentSessionId, messageId, resp.instance_id || resp.model);
+
+            const voteUpBtn = document.createElement('button');
+            voteUpBtn.className = 'vote-btn vote-up' + (currentVote === 'up' ? ' voted' : '');
+            voteUpBtn.innerHTML = '👍';
+            voteUpBtn.title = 'Like this response';
+            voteUpBtn.onclick = function() { handleVote(currentSessionId, messageId, resp.instance_id || resp.model, 'up', this); };
+            hdrActions.appendChild(voteUpBtn);
+
+            const voteDownBtn = document.createElement('button');
+            voteDownBtn.className = 'vote-btn vote-down' + (currentVote === 'down' ? ' voted' : '');
+            voteDownBtn.innerHTML = '👎';
+            voteDownBtn.title = 'Dislike this response';
+            voteDownBtn.onclick = function() { handleVote(currentSessionId, messageId, resp.instance_id || resp.model, 'down', this); };
+            hdrActions.appendChild(voteDownBtn);
+          }
+
+          hdr.appendChild(hdrActions);
+          col.appendChild(hdr);
+
           const metricsDiv = document.createElement('div');
           metricsDiv.className = 'arena-metrics';
           if(resp.metrics) {
@@ -2292,19 +2387,23 @@ function renderMessages(){
             metricsDiv.style.display = 'none';
           }
           col.appendChild(metricsDiv);
-          
+
           const respDiv = document.createElement('div');
           respDiv.className = 'arena-response';
-          
+
           const bubble = document.createElement('div');
           bubble.className = 'bubble';
+          const bubbleId = 'bubble-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+          bubble.id = bubbleId;
           bubble.innerHTML = renderMarkdown(resp.content || '');
           respDiv.appendChild(bubble);
           col.appendChild(respDiv);
+
           
+
           arenaContainer.appendChild(col);
         });
-        
+
         messagesEl.appendChild(arenaContainer);
       } else if(arenaGroup.length === 1) {
         // Single assistant in what we thought was arena, render normally
@@ -2323,9 +2422,14 @@ function renderMessages(){
   }
   
   inputEl.value = s.draft || '';
+  
+  // Ensure scroll position is at the very bottom after rendering all messages
+  setTimeout(() => {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }, 0);
 }
 
-function append(role, text, modelName = null, metrics = null){
+function append(role, text, modelName = null, metrics = null, isLatestUser = false){
   const d = document.createElement('div');
   d.className = 'msg ' + (role === 'user' ? 'user' : 'assistant');
   const bubble = document.createElement('div');
@@ -2336,25 +2440,25 @@ function append(role, text, modelName = null, metrics = null){
   if(role === 'assistant') {
     bubble.innerHTML = renderMarkdown(text);
     
-    // Add action buttons for assistant responses
-    const actionBar = document.createElement('div');
-    actionBar.className = 'response-actions';
-    actionBar.style.marginTop = '0.5rem';
-    actionBar.style.display = 'flex';
-    actionBar.style.gap = '0.5rem';
-    actionBar.style.flexWrap = 'wrap';
-    
-    // Copy button
+    // Create a header for assistant responses and attach action buttons there
+    const hdr = document.createElement('div');
+    hdr.className = 'assistant-hdr';
+    if(modelName) hdr.textContent = modelName;
+
+    const hdrActions = document.createElement('div');
+    hdrActions.className = 'response-actions';
+    hdrActions.style.marginTop = '0.25rem';
+    hdrActions.style.display = 'flex';
+    hdrActions.style.gap = '0.5rem';
+    hdrActions.style.flexWrap = 'wrap';
+
     const copyBtn = document.createElement('button');
     copyBtn.className = 'action-btn';
     copyBtn.innerHTML = '📋 Copy';
     copyBtn.title = 'Copy response';
-    copyBtn.onclick = function() {
-      copyToClipboard(document.getElementById(uniqueId).textContent, this);
-    };
-    actionBar.appendChild(copyBtn);
-    
-    // Regenerate button (only if we have the model name)
+    copyBtn.onclick = function() { copyToClipboard(document.getElementById(uniqueId).textContent, this); };
+    hdrActions.appendChild(copyBtn);
+
     if(modelName) {
       const regenBtn = document.createElement('button');
       regenBtn.className = 'action-btn';
@@ -2363,42 +2467,33 @@ function append(role, text, modelName = null, metrics = null){
       regenBtn.onclick = function() {
         const s = sessions.find(x => x.id === currentSessionId);
         if(s && s.history.length > 0) {
-          // Find the last user message
           for(let i = s.history.length - 1; i >= 0; i--) {
-            if(s.history[i].role === 'user') {
-              regenerateResponse(modelName, s.history[i].content, uniqueId);
-              break;
-            }
+            if(s.history[i].role === 'user') { regenerateResponse(modelName, s.history[i].content, uniqueId); break; }
           }
         }
       };
-      actionBar.appendChild(regenBtn);
+      hdrActions.appendChild(regenBtn);
     }
-    
-    // Vote buttons
+
     const messageId = uniqueId;
     const currentVote = modelName ? getVote(currentSessionId, messageId, modelName) : null;
-    
     const voteUpBtn = document.createElement('button');
     voteUpBtn.className = 'vote-btn vote-up' + (currentVote === 'up' ? ' voted' : '');
     voteUpBtn.innerHTML = '👍';
     voteUpBtn.title = 'Like this response';
-    voteUpBtn.onclick = function() {
-      handleVote(currentSessionId, messageId, modelName || 'default', 'up', this);
-    };
-    actionBar.appendChild(voteUpBtn);
-    
+    voteUpBtn.onclick = function() { handleVote(currentSessionId, messageId, modelName || 'default', 'up', this); };
+    hdrActions.appendChild(voteUpBtn);
+
     const voteDownBtn = document.createElement('button');
     voteDownBtn.className = 'vote-btn vote-down' + (currentVote === 'down' ? ' voted' : '');
     voteDownBtn.innerHTML = '👎';
     voteDownBtn.title = 'Dislike this response';
-    voteDownBtn.onclick = function() {
-      handleVote(currentSessionId, messageId, modelName || 'default', 'down', this);
-    };
-    actionBar.appendChild(voteDownBtn);
-    
+    voteDownBtn.onclick = function() { handleVote(currentSessionId, messageId, modelName || 'default', 'down', this); };
+    hdrActions.appendChild(voteDownBtn);
+
+    hdr.appendChild(hdrActions);
+    d.appendChild(hdr);
     d.appendChild(bubble);
-    d.appendChild(actionBar);
     
     // Add metrics if available
     if(metrics) {
@@ -2414,10 +2509,32 @@ function append(role, text, modelName = null, metrics = null){
   } else {
     bubble.textContent = text;
     d.appendChild(bubble);
+    
+    // Add reask button if this is the latest user message
+    if(isLatestUser) {
+      const actionBar = document.createElement('div');
+      actionBar.className = 'response-actions';
+      actionBar.style.marginTop = '0.5rem';
+      actionBar.style.display = 'flex';
+      actionBar.style.gap = '0.5rem';
+      actionBar.style.flexWrap = 'wrap';
+      
+      const reaskBtn = document.createElement('button');
+      reaskBtn.className = 'action-btn';
+      reaskBtn.innerHTML = '🔄 Reask';
+      reaskBtn.title = 'Send this message again';
+      reaskBtn.onclick = function() {
+        inputEl.value = text;
+        send();
+      };
+      actionBar.appendChild(reaskBtn);
+      
+      d.appendChild(actionBar);
+    }
   }
   
   messagesEl.appendChild(d);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  // Removed scroll here - will scroll at end of renderMessages instead
 }
 
 // Chat
@@ -2528,7 +2645,7 @@ async function send(){
   
   // Show helper text
   if(instancesToUse.length > 1) {
-    showHelperText('⏳ Generating responses... This may take a moment with multiple models');
+    showHelperText('⏳ Generating responses... This may take a moment with multiple models. Do not change conversation until response is generated');
   } else {
     showHelperText('⏳ Generating response...');
   }
@@ -2586,13 +2703,20 @@ async function send(){
         
         const hdr = document.createElement('div');
         hdr.className = 'arena-hdr';
-        
+
+        // Compute vote state for this column
+        const messageId = 'msg-' + uniqueSuffix;
+        const currentVote = getVote(currentSessionId, messageId, inst.id);
+        const voteDisabled = !blindModeEnabled || (blindSessionState && blindSessionState.revealed);
+
         // In blind mode, hide actions that would reveal model identity
         const actionsHtml = blindModeEnabled && blindSessionState && !blindSessionState.revealed
           ? `<div class="arena-actions">
               <button class="arena-btn" onclick="copyToClipboard(document.getElementById('bubble-${uniqueSuffix}').textContent, this)" title="Copy response">
                 📋 Copy
               </button>
+              <button class="vote-btn vote-up ${currentVote === 'up' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'up', this)" title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Like this response'}" ${voteDisabled ? 'disabled' : ''}>👍</button>
+              <button class="vote-btn vote-down ${currentVote === 'down' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'down', this)" title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Dislike this response'}" ${voteDisabled ? 'disabled' : ''}>👎</button>
             </div>`
           : `<div class="arena-actions">
               <button class="arena-btn" onclick="copyToClipboard(document.getElementById('bubble-${uniqueSuffix}').textContent, this)" title="Copy response">
@@ -2604,8 +2728,10 @@ async function send(){
               <button class="arena-btn" onclick="regenerateInstanceResponse('${inst.id}', '${msg.replace(/'/g, "\\'")}', 'bubble-${uniqueSuffix}')" title="Regenerate response">
                 🔄 Regen
               </button>
+              <button class="vote-btn vote-up ${currentVote === 'up' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'up', this)" title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Like this response'}" ${voteDisabled ? 'disabled' : ''}>👍</button>
+              <button class="vote-btn vote-down ${currentVote === 'down' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'down', this)" title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Dislike this response'}" ${voteDisabled ? 'disabled' : ''}>👎</button>
             </div>`;
-        
+
         hdr.innerHTML = `
           <span class="arena-model-name">${displayName}</span>
           ${actionsHtml}
@@ -2630,29 +2756,10 @@ async function send(){
         bubbleIds[inst.id] = 'bubble-' + uniqueSuffix;
         respDiv.appendChild(bubble);
         col.appendChild(respDiv);
+
+        // Actions are shown in header only to avoid duplication
         
-        // Add voting buttons (only functional in blind mode)
-        const voteDiv = document.createElement('div');
-        voteDiv.className = 'vote-container';
-        const messageId = 'msg-' + uniqueSuffix;
-        const currentVote = getVote(currentSessionId, messageId, inst.id);
-        const voteDisabled = !blindModeEnabled || (blindSessionState && blindSessionState.revealed);
-        
-        voteDiv.innerHTML = `
-          <button class="vote-btn vote-up ${currentVote === 'up' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" 
-                  onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'up', this)" 
-                  title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Like this response'}"
-                  ${voteDisabled ? 'disabled' : ''}>
-            👍
-          </button>
-          <button class="vote-btn vote-down ${currentVote === 'down' ? 'voted' : ''} ${voteDisabled ? 'disabled' : ''}" 
-                  onclick="handleVote('${currentSessionId}', '${messageId}', '${inst.id}', 'down', this)" 
-                  title="${voteDisabled ? 'Enable Blind Mode to vote' : 'Dislike this response'}"
-                  ${voteDisabled ? 'disabled' : ''}>
-            👎
-          </button>
-        `;
-        col.appendChild(voteDiv);
+        // vote buttons are rendered into the header (actionsHtml) to avoid duplication
         
         arenaContainer.appendChild(col);
         metricsMap[inst.id] = {tokens: 0, startTime: null, firstTokenTime: null, fullText: '', metrics: null};
@@ -2675,6 +2782,11 @@ async function send(){
       let buffer = '';
       
       while(true){
+        // Check if session has changed - if so, abort streaming
+        if(currentSessionId !== s.id) {
+          throw new Error('Session changed during streaming');
+        }
+        
         const {value, done} = await reader.read();
         if(done) break;
         
@@ -2712,7 +2824,7 @@ async function send(){
               const bubble = document.getElementById(bubbleId);
               if(bubble) {
                 bubble.innerHTML = renderMarkdown(metricsMap[instId].fullText);
-                messagesEl.scrollTop = messagesEl.scrollHeight;
+                // Removed scroll - will be handled after streaming completes
               }
             }
             else if(obj.type === 'metrics'){
@@ -2766,16 +2878,67 @@ async function send(){
       const decoder = new TextDecoder();
       let buffer = '';
       
-      // Create a new assistant message div for streaming
+      // Prepare single instance info for streaming UI
+      const singleInst = instancesToUse[0];
+      const modelName = singleInst ? singleInst.model : null;
+
+      // Create a new assistant message div for streaming with header actions
       const assistantMsg = document.createElement('div');
       assistantMsg.className = 'msg assistant';
+
+      // Header with model name and actions (keeps position consistent)
+      const assistantHdr = document.createElement('div');
+      assistantHdr.className = 'assistant-hdr';
+      if(modelName) assistantHdr.textContent = modelName;
+
+      const hdrActions = document.createElement('div');
+      hdrActions.className = 'response-actions';
+      hdrActions.style.display = 'flex';
+      hdrActions.style.gap = '0.5rem';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'action-btn';
+      copyBtn.innerHTML = '📋 Copy';
+      copyBtn.title = 'Copy response';
+      copyBtn.onclick = function() { copyToClipboard(document.getElementById(assistantBubbleId).textContent, this); };
+      hdrActions.appendChild(copyBtn);
+
+      if(modelName) {
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'action-btn';
+        regenBtn.innerHTML = '🔄 Regen';
+        regenBtn.title = 'Regenerate response';
+        regenBtn.onclick = function() {
+          const sLocal = sessions.find(x => x.id === currentSessionId);
+          if(sLocal && sLocal.history.length > 0) {
+            for(let k = sLocal.history.length - 1; k >= 0; k--) {
+              if(sLocal.history[k].role === 'user') {
+                regenerateResponse(modelName, sLocal.history[k].content, assistantBubbleId);
+                break;
+              }
+            }
+          }
+        };
+        hdrActions.appendChild(regenBtn);
+      }
+
+      assistantHdr.appendChild(hdrActions);
+      assistantMsg.appendChild(assistantHdr);
+
       const assistantBubble = document.createElement('div');
       assistantBubble.className = 'bubble';
+      const assistantBubbleId = 'bubble-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      assistantBubble.id = assistantBubbleId;
       assistantBubble.textContent = '';
       assistantMsg.appendChild(assistantBubble);
       messagesEl.appendChild(assistantMsg);
       
       while(true){
+        // Check if session has changed - if so, abort streaming
+        if(currentSessionId !== s.id) {
+          throw new Error('Session changed during streaming');
+        }
+        
         const {value, done} = await reader.read();
         if(done) break;
         
@@ -2792,75 +2955,14 @@ async function send(){
             if(obj.type === 'token'){
               fullText += obj.token || '';
               assistantBubble.innerHTML = renderMarkdown(fullText);
-              messagesEl.scrollTop = messagesEl.scrollHeight;
+              // Removed scroll - will be handled after streaming completes
             }
           } catch(e) {}
         }
       }
       
-      // After streaming completes, add action buttons
-      const singleInst = instancesToUse[0];
-      const modelName = singleInst.model;
-      const displayName = getDisplayName(singleInst.id, singleInst.model);
-      const uniqueId = 'bubble-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-      assistantBubble.id = uniqueId;
-      
-      // Add action buttons
-      const actionBar = document.createElement('div');
-      actionBar.className = 'response-actions';
-      actionBar.style.marginTop = '0.5rem';
-      actionBar.style.display = 'flex';
-      actionBar.style.gap = '0.5rem';
-      actionBar.style.flexWrap = 'wrap';
-      
-      // Copy button
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'action-btn';
-      copyBtn.innerHTML = '📋 Copy';
-      copyBtn.title = 'Copy response';
-      copyBtn.onclick = function() {
-        copyToClipboard(document.getElementById(uniqueId).textContent, this);
-      };
-      actionBar.appendChild(copyBtn);
-      
-      // Regenerate button (hidden in blind mode)
-      if (!blindModeEnabled || !blindSessionState || blindSessionState.revealed) {
-        const regenBtn = document.createElement('button');
-        regenBtn.className = 'action-btn';
-        regenBtn.innerHTML = '🔄 Regen';
-        regenBtn.title = 'Regenerate response';
-        regenBtn.onclick = function() {
-          regenerateInstanceResponse(singleInst.id, msg, uniqueId);
-        };
-        actionBar.appendChild(regenBtn);
-      }
-      
-      // Vote buttons
-      const messageId = uniqueId;
-      const currentVote = getVote(currentSessionId, messageId, singleInst.id);
-      const voteDisabled = !blindModeEnabled || (blindSessionState && blindSessionState.revealed);
-      
-      const voteUpBtn = document.createElement('button');
-      voteUpBtn.className = 'vote-btn vote-up' + (currentVote === 'up' ? ' voted' : '') + (voteDisabled ? ' disabled' : '');
-      voteUpBtn.innerHTML = '👍';
-      voteUpBtn.title = voteDisabled ? 'Enable Blind Mode to vote' : 'Like this response';
-      voteUpBtn.disabled = voteDisabled;
-      voteUpBtn.onclick = function() {
-        handleVote(currentSessionId, messageId, singleInst.id, 'up', this);
-      };
-      actionBar.appendChild(voteUpBtn);
-      
-      const voteDownBtn = document.createElement('button');
-      voteDownBtn.className = 'vote-btn vote-down' + (currentVote === 'down' ? ' voted' : '') + (voteDisabled ? ' disabled' : '');
-      voteDownBtn.innerHTML = '👎';
-      voteDownBtn.title = voteDisabled ? 'Enable Blind Mode to vote' : 'Dislike this response';
-      voteDownBtn.disabled = voteDisabled;
-      voteDownBtn.onclick = function() {
-        handleVote(currentSessionId, messageId, singleInst.id, 'down', this);
-      };
-      actionBar.appendChild(voteDownBtn);
-      
-      assistantMsg.appendChild(actionBar);
+      // After streaming completes, the renderMessages() call will handle creating action buttons
+      // No need to manually add them here since renderMessages() will be called in finally block
       
       s.history.push({role: 'assistant', content: fullText, model: modelName, instance_id: singleInst.id});
     }
@@ -2951,7 +3053,7 @@ async function send(){
     
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } catch(err){
-    if(err.name === 'AbortError') {
+    if(err.name === 'AbortError' || err.message === 'Session changed during streaming') {
       // Clear any 'Generating...' bubbles in all modes
       // Method 1: Use bubbleIds if available (arena mode)
       if(bubbleIds && Object.keys(bubbleIds).length > 0) {
@@ -3025,6 +3127,7 @@ async function send(){
     setTimeout(hideHelperText, 2000);
     
     abortController = null;
+    renderMessages(); // Re-render messages to ensure UI consistency after streaming
     s.updatedAt = Date.now();
     saveSessions();
   }
@@ -3062,6 +3165,12 @@ inputEl.addEventListener('input', () => {
 clearBtn.addEventListener('click', () => {
   const s = sessions.find(x => x.id === currentSessionId);
   if(!s) return;
+  
+  // Abort any ongoing streaming before clearing
+  if(abortController) {
+    abortController.abort();
+  }
+  
   showConfirmDialog(
     'Clear all messages in this conversation?',
     () => {
@@ -3368,7 +3477,7 @@ function init(){
     const s = sessions[0];
     
     // Restore system prompt from saved session
-    systemEl.value = s.system || 'You are a sharp teacher like Richard Feynman.';
+    systemEl.value = s.system || 'You are a helpful assistant.';
     
     // Restore model selection (for compatibility)
     const savedModels = s.models || [];

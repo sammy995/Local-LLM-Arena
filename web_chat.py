@@ -7,10 +7,6 @@ import json
 import time
 import threading
 import queue
-import logging
-
-# Setup logger
-logger = logging.getLogger('ollama_arena.web_chat')
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -144,9 +140,6 @@ def chat():
     if isinstance(base_history, list) and len(base_history) > HISTORY_LIMIT:
         base_history = base_history[-HISTORY_LIMIT:]
 
-    # Debug: log received model instances
-    logger.info(f"Received model_instances: {model_instances}")
-
     # If only one model instance requested, keep backward-compatible shape
     if len(model_instances) <= 1:
         inst = model_instances[0] if model_instances else {'id': DEFAULT_MODEL, 'model': DEFAULT_MODEL}
@@ -160,8 +153,6 @@ def chat():
             options['top_p'] = float(inst['top_p'])
         if 'top_k' in inst and inst['top_k'] is not None:
             options['top_k'] = int(inst['top_k'])
-        
-        logger.info(f"Calling model {model} with options: {options}")
         
         try:
             start_time = time.time()
@@ -199,8 +190,6 @@ def chat():
             options['top_p'] = float(inst['top_p'])
         if 'top_k' in inst and inst['top_k'] is not None:
             options['top_k'] = int(inst['top_k'])
-        
-        logger.info(f"Arena: Calling {model} (id={instance_id}) with options: {options}")
         
         try:
             local_hist = list(base_history)
@@ -345,7 +334,7 @@ def stream_chat():
                     break
                 continue
 
-    return Response(event_stream(), mimetype='application/x-ndjson')
+    return Response(event_stream(), status=200, mimetype='application/x-ndjson')
 
 
 @app.route('/api/pull_model', methods=['POST'])
