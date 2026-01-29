@@ -32,7 +32,37 @@ Existing solutions like ChatGPT Arena and LMSys are excellent for public benchma
 **Ollama Arena solves this** by bringing multi-model evaluation entirely to your local machine, with zero external API calls and complete data sovereignty.
 
 ---
+## ✨ Features
 
+### 1. Side-by-Side Comparison
+Benchmark multiple models at once. Witness real-time generation and compare how different architectures handle the same prompt across independent context windows.
+
+<p align="center">
+  <img src="templates/Compare-LLMs.gif" width="800" alt="Compare LLMs Demo">
+</p>
+
+### 2. Multi-Model Blind Testing
+Eliminate brand bias. In Blind Mode, model names are hidden, allowing you to vote for the best response based purely on the quality and accuracy of the output—essential for objective model evaluation.
+
+<p align="center">
+  <img src="templates/Blind-mode-comparison.gif" width="800" alt="Blind Mode Demo">
+</p>
+
+### 3. Audit-Ready History & Export
+Every session is documented. Export your chat history and model performance metrics into structured JSON files for internal audits, compliance reporting, or further RAG analysis.
+
+<p align="center">
+  <img src="templates/Export-json-history.gif" width="800" alt="Export History Demo">
+</p>
+
+### 4. Audit-Ready History & Export
+Every session is documented. Export your chat history and model performance metrics into structured JSON files for internal audits or compliance reporting.
+
+<p align="center">
+  <img src="templates/Export-json-history.gif" width="800" alt="Export History Demo">
+</p>
+
+---
 ## 🏗️ System Overview
 
 ### Local-First Architecture
