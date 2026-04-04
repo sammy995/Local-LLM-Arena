@@ -1,5 +1,11 @@
 # Local LLM Arena — Local Multi-Model AI Comparison Platform
 
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/flask-2.x-black?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![Ollama](https://img.shields.io/badge/powered%20by-Ollama-orange)](https://ollama.ai)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-3.0.0-informational)](CHANGELOG.md)
+
 A privacy-first, local-only web application for side-by-side evaluation of multiple AI models via Ollama, with **blind evaluation**, **per-model hyperparameters**, and exportable results.
 
 **Version 3.0.0** — Advanced Model Configuration & Blind Testing
@@ -55,11 +61,11 @@ Every session is documented. Export your chat history and model performance metr
   <img src="templates/Export-json-history.gif" width="800" alt="Export History Demo">
 </p>
 
-### 4. Audit-Ready History & Export
-Every session is documented. Export your chat history and model performance metrics into structured JSON files for internal audits or compliance reporting.
+### 4. File Support
+Attach files directly to your prompts. Supports plain text, code, and image files for multimodal evaluation alongside your LLM comparisons.
 
 <p align="center">
-  <img src="templates/Export-json-history.gif" width="800" alt="Export History Demo">
+  <img src="templates/File-support-test.gif" width="800" alt="File Support Demo">
 </p>
 
 ---
@@ -453,7 +459,7 @@ If you use Ollama Arena in your research, please cite:
   title        = {Ollama Arena: Local-First Multi-Model AI Comparison Platform},
   year         = {2026},
   month        = {January},
-  url          = {https://github.com/yourusername/ollama-arena},
+  url          = {https://github.com/sammy995/Local-LLM-Arena},
   note         = {Privacy-first side-by-side evaluation of local AI models via Ollama},
   license      = {MIT}
 }
@@ -508,8 +514,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/ollama-arena/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollama-arena/discussions)
+- **Issues**: [GitHub Issues](https://github.com/sammy995/Local-LLM-Arena/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sammy995/Local-LLM-Arena/discussions)
 - **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
 - **Detailed Article**: [Designing a Local First LLM Evaluation system](https://medium.com/@shubhamlagad/designing-a-local-first-llm-evaluation-system-068f556a2fb8)
 
