@@ -55,11 +55,11 @@ Every session is documented. Export your chat history and model performance metr
   <img src="docs/assets/Export-json-history.gif" width="800" alt="Export History Demo">
 </p>
 
-### 4. Audit-Ready History & Export
-Every session is documented. Export your chat history and model performance metrics into structured JSON files for internal audits or compliance reporting.
+### 4. File Attachments
+Attach a text or code file and ask every model about it at once — the file content is read locally and added to your prompt. Nothing is uploaded anywhere.
 
 <p align="center">
-  <img src="docs/assets/Export-json-history.gif" width="800" alt="Export History Demo">
+  <img src="docs/assets/File-support-test.gif" width="800" alt="File Attachment Demo">
 </p>
 
 ---
@@ -453,7 +453,7 @@ If you use Ollama Arena in your research, please cite:
   title        = {Ollama Arena: Local-First Multi-Model AI Comparison Platform},
   year         = {2026},
   month        = {January},
-  url          = {https://github.com/yourusername/ollama-arena},
+  url          = {https://github.com/sammy995/Local-LLM-Arena},
   note         = {Privacy-first side-by-side evaluation of local AI models via Ollama},
   license      = {MIT}
 }
@@ -508,8 +508,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/ollama-arena/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollama-arena/discussions)
+- **Issues**: [GitHub Issues](https://github.com/sammy995/Local-LLM-Arena/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sammy995/Local-LLM-Arena/discussions)
 - **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
 - **Detailed Article**: [Designing a Local First LLM Evaluation system](https://medium.com/@shubhamlagad/designing-a-local-first-llm-evaluation-system-068f556a2fb8)
 

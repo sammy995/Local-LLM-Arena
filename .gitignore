@@ -95,3 +95,10 @@ conda-meta/
 
 # Local improvement/rewrite planning workspace (never push to GitHub)
 improvement-plan/
+
+# Node / frontend (rewrite)
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.vite/
+.playwright-mcp/

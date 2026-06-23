@@ -1,56 +1,81 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Tailwind v4 + shadcn/ui (neutral) — CSS-first config. Dark mode via .dark class. */
+/*
+  Local LLM Arena — "The Forge" theme.
+  Industrial-utilitarian dev tool: warm charcoal ink, single ember accent.
+  Dark-first; light mode is re-tinted (sand), not inverted.
+  shadcn/ui token names kept so generated components stay compatible.
+*/
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+
+  /* light = warm sand */
+  --background: oklch(0.971 0.006 84);
+  --foreground: oklch(0.241 0.012 67);
+  --card: oklch(0.991 0.004 84);
+  --card-foreground: oklch(0.241 0.012 67);
+  --popover: oklch(0.991 0.004 84);
+  --popover-foreground: oklch(0.241 0.012 67);
+  --primary: oklch(0.62 0.17 52);
+  --primary-foreground: oklch(0.99 0.01 84);
+  --secondary: oklch(0.93 0.01 84);
+  --secondary-foreground: oklch(0.30 0.014 67);
+  --muted: oklch(0.93 0.01 84);
+  --muted-foreground: oklch(0.52 0.014 67);
+  --accent: oklch(0.92 0.03 70);
+  --accent-foreground: oklch(0.30 0.014 67);
+  --destructive: oklch(0.58 0.21 27);
+  --success: oklch(0.62 0.15 150);
+  --border: oklch(0.88 0.01 80);
+  --input: oklch(0.88 0.01 80);
+  --ring: oklch(0.62 0.17 52);
+
+  /* brand */
+  --ember: oklch(0.67 0.19 48);
+  --ember-foreground: oklch(0.16 0.02 60);
+  --ember-glow: oklch(0.72 0.2 55 / 0.35);
+
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* dark = warm charcoal ink */
+  --background: oklch(0.178 0.008 65);
+  --foreground: oklch(0.922 0.008 80);
+  --card: oklch(0.215 0.009 65);
+  --card-foreground: oklch(0.922 0.008 80);
+  --popover: oklch(0.205 0.009 65);
+  --popover-foreground: oklch(0.922 0.008 80);
+  --primary: oklch(0.72 0.18 54);
+  --primary-foreground: oklch(0.17 0.02 60);
+  --secondary: oklch(0.27 0.011 65);
+  --secondary-foreground: oklch(0.922 0.008 80);
+  --muted: oklch(0.27 0.011 65);
+  --muted-foreground: oklch(0.685 0.014 75);
+  --accent: oklch(0.31 0.02 60);
+  --accent-foreground: oklch(0.95 0.01 80);
+  --destructive: oklch(0.62 0.2 25);
+  --success: oklch(0.7 0.15 152);
+  --border: oklch(0.3 0.012 65 / 0.7);
+  --input: oklch(0.34 0.012 65);
+  --ring: oklch(0.72 0.18 54);
+
+  --ember: oklch(0.74 0.19 55);
+  --ember-foreground: oklch(0.16 0.02 60);
+  --ember-glow: oklch(0.74 0.2 55 / 0.45);
 }
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -66,16 +91,53 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-ember: var(--ember);
+  --color-ember-foreground: var(--ember-foreground);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-feature-settings: "ss01", "cv01";
+  }
+  /* subtle film-grain atmosphere over the warm ink */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  ::selection {
+    background: var(--ember-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
   }
 }
