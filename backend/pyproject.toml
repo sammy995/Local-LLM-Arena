@@ -1,0 +1,30 @@
+[project]
+name = "local-llm-arena-backend"
+version = "4.0.0"
+description = "Async FastAPI backend for Local LLM Arena (talks to local Ollama)."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.138.0",
+    "uvicorn[standard]>=0.49.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "ollama>=0.6.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.18",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+# Run dev server:  uvicorn app.main:app --reload --host 127.0.0.1 --port 7860
+# Install:         pip install -e ".[dev]"   (or: uv pip install -e ".[dev]")
