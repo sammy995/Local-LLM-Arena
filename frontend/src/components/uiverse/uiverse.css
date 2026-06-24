@@ -1,0 +1,108 @@
+/*
+  Uiverse-style accent components (authored in the Uiverse spirit, MIT).
+  Uiverse.io is a community gallery of open-source UI elements (MIT). These are
+  original, MIT-clean implementations in that style. To use a SPECIFIC element from
+  uiverse.io, drop its HTML/CSS into a component here and keep the author credit.
+  See /CREDITS.md.
+*/
+
+/* ---- Ember button: gradient + sheen sweep + press spring ---- */
+.uv-ember-btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border: 0;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ember-foreground);
+  background: linear-gradient(135deg, oklch(0.78 0.17 62), oklch(0.66 0.2 45));
+  box-shadow: 0 1px 0 oklch(1 0 0 / 0.25) inset, 0 6px 18px -8px var(--ember-glow);
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease,
+    filter 0.2s ease;
+  overflow: hidden;
+}
+.uv-ember-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(115deg, transparent 30%, oklch(1 0 0 / 0.45) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+.uv-ember-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 1px 0 oklch(1 0 0 / 0.3) inset, 0 10px 26px -8px var(--ember-glow);
+}
+.uv-ember-btn:hover::before { transform: translateX(120%); }
+.uv-ember-btn:active { transform: translateY(0) scale(0.97); }
+.uv-ember-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.3); }
+.uv-ember-btn .uv-ico { transition: transform 0.2s ease; }
+.uv-ember-btn:hover .uv-ico { transform: translateX(2px) rotate(-8deg); }
+
+/* ---- Blind toggle: a switch styled as a mask/eye ---- */
+.uv-blind {
+  --w: 3.1rem;
+  --h: 1.6rem;
+  position: relative;
+  display: inline-flex;
+  width: var(--w);
+  height: var(--h);
+  cursor: pointer;
+  user-select: none;
+}
+.uv-blind input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.uv-blind .track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+  pointer-events: none; /* let clicks reach the underlying checkbox */
+}
+.uv-blind .knob {
+  position: absolute;
+  top: 50%;
+  left: 0.18rem;
+  width: 1.18rem;
+  height: 1.18rem;
+  translate: 0 -50%;
+  border-radius: 999px;
+  background: var(--card-foreground);
+  display: grid;
+  place-items: center;
+  font-size: 0.66rem;
+  transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease;
+  pointer-events: none; /* let clicks reach the underlying checkbox */
+}
+.uv-blind input:checked + .track {
+  background: linear-gradient(135deg, oklch(0.7 0.18 56), oklch(0.6 0.2 42));
+  box-shadow: 0 0 0 3px var(--ember-glow);
+}
+.uv-blind input:checked ~ .knob { left: calc(var(--w) - 1.36rem); background: var(--ember-foreground); }
+.uv-blind input:focus-visible + .track { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* ---- Forge loader: rising ember sparks (streaming indicator) ---- */
+.uv-forge-loader { display: inline-flex; gap: 0.28rem; align-items: flex-end; height: 1rem; }
+.uv-forge-loader i {
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: var(--ember);
+  box-shadow: 0 0 8px var(--ember-glow);
+  animation: uv-spark 0.9s ease-in-out infinite;
+}
+.uv-forge-loader i:nth-child(2) { animation-delay: 0.15s; }
+.uv-forge-loader i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes uv-spark {
+  0%, 100% { transform: translateY(0) scale(0.8); opacity: 0.5; }
+  50% { transform: translateY(-0.4rem) scale(1.1); opacity: 1; }
+}
