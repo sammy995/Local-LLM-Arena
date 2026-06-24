@@ -1,4 +1,12 @@
-import type { ChatRequest, JudgeRequest, JudgeResult, ModelInfo } from "./types";
+import type { ChatRequest, JudgeRequest, JudgeResult, Metrics, ModelInfo } from "./types";
+
+export interface ChatResults {
+  results: Record<
+    string,
+    { model: string; assistant: string; metrics?: Metrics; error?: string | null }
+  >;
+  errors: Record<string, string>;
+}
 
 // Optional bearer token (set window.__ARENA_TOKEN__ if backend requires it).
 function headers(): HeadersInit {
@@ -28,6 +36,18 @@ export async function streamChat(body: ChatRequest, signal?: AbortSignal): Promi
   });
   if (!r.ok || !r.body) throw new Error(`POST /api/chat/stream -> ${r.status}`);
   return r;
+}
+
+// Non-streaming chat: all selected models answer in parallel, returned together.
+// Used by the batch benchmark (no need to stream tokens).
+export async function chatOnce(body: ChatRequest): Promise<ChatResults> {
+  const r = await fetch("/api/chat", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`/api/chat -> ${r.status}`);
+  return r.json();
 }
 
 export async function judge(req: JudgeRequest): Promise<JudgeResult> {
