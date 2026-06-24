@@ -383,7 +383,33 @@ This project was developed using **AI-assisted coding and testing** (GitHub Copi
 
 ## 🚀 How to Run
 
-### Prerequisites
+> **v4 (FastAPI + React) is being built under `backend/` and `frontend/`.** Use the
+> one-command launcher below. The legacy Flask instructions further down still work
+> until the rewrite reaches full parity.
+
+### ⚡ Quick start (one command)
+
+**Prerequisites:** [Python 3.11+](https://python.org), [Node 20+](https://nodejs.org),
+and [Ollama](https://ollama.com) running with at least one model
+(`ollama pull gemma3:1b`).
+
+```powershell
+# Windows
+./start.ps1
+```
+
+```bash
+# macOS / Linux
+./start.sh
+```
+
+This installs the backend (virtual env + deps) and frontend (npm + production build),
+then serves the whole app as a single local process at **http://127.0.0.1:7860**.
+For hot-reload development instead, run `scripts/dev.ps1` (starts Vite + uvicorn).
+
+---
+
+### Legacy Flask app — Prerequisites
 - **Python 3.8+**
 - **Ollama CLI** installed ([ollama.ai](https://ollama.ai))
 - At least one model pulled (e.g., `ollama pull llama3.2`)
