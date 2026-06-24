@@ -4,6 +4,7 @@
 
 **Compare your local LLMs side by side — stream, score, and pick the best, 100% on your machine.**
 
+[![CI](https://github.com/sammy995/Local-LLM-Arena/actions/workflows/ci.yml/badge.svg)](https://github.com/sammy995/Local-LLM-Arena/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ember.svg?color=e8843a)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
@@ -100,6 +101,14 @@ Then, from the project root:
 
 This installs the backend (virtual env + deps) and frontend (npm + production build),
 then serves the whole app as a **single local process** at **http://127.0.0.1:7860**.
+
+### Or with Docker
+
+Ollama runs on the host (keeping your GPU); the app runs in a container and reaches it:
+
+```bash
+docker compose up --build      # -> http://localhost:7860
+```
 
 ## How it works
 
