@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-06-24
+
+### 🔥 Full rewrite — FastAPI + React, comparison-first
+
+A ground-up rewrite focused on the core job: comparing local models side by side.
+
+### Added
+- **Async FastAPI backend** (`backend/`) replacing the dual Flask apps. Single source
+  of truth, Pydantic-validated, talks to Ollama via `ollama-python` AsyncClient.
+- **React 19 + Vite + Tailwind v4 + shadcn/ui frontend** (`frontend/`) — distinctive
+  "Forge" theme, sanitized markdown rendering, tooltips throughout, dark/light.
+- **Comparison-first UI**: side-by-side streaming cards with compare metrics
+  (tokens/sec, time-to-first-token, token count) and a "fastest" indicator.
+- **One-command install & run**: `start.ps1` / `start.sh` serve the SPA + API from a
+  single process at `http://127.0.0.1:7860`.
+- Tests: backend `pytest` (validation + hyperparameter passthrough) and frontend
+  `vitest` (helpers + NDJSON stream parser).
+
+### Fixed
+- Streaming now does **one generation per model** (the old `web_chat.py` ran each model
+  twice and could save text different from what streamed).
+- **All six hyperparameters** reach Ollama (the documented Flask path dropped
+  `repeat_penalty`, `num_predict`, and `seed`).
+- Out-of-range parameters return `422` instead of crashing with `500`.
+- Debug server is **off by default**; origin guard on model pull/delete.
+
+### Changed
+- Demo GIFs moved out of the Flask `templates/` folder into `docs/assets/`.
+- README and docs rewritten; added `CREDITS.md` and ADR-0001.
+
+### Removed
+- Legacy Flask app (`web_chat.py`, `app/`, `static/`, `templates/`, `run.py`,
+  `config.py`, `logger.py`, `Chatbot.py`) and stale docs (`API.md`, `QUICKSTART.md`).
+
 ## [3.0.0] - 2026-01-27
 
 ### 🎉 Major Release - Advanced Model Configuration & Blind Evaluation
