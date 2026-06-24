@@ -49,6 +49,10 @@ models on private or sensitive data.
   with a 👑 crown on the fastest.
 - **🎭 Blind evaluation** — hide model names (“Model A/B/C”), randomize order, vote 👍/👎,
   then reveal the mapping and vote tally. Voting locks on reveal to keep results honest.
+- **🧑‍⚖️ Auto-judge (LLM-as-judge)** — score the answers automatically and pick a winner,
+  using a **local** model or a **cloud** model with your own API key (Anthropic, OpenRouter,
+  or any OpenAI-compatible endpoint). Answers are anonymized to the judge to avoid bias;
+  cloud judging is opt-in with a clear privacy notice (keys stay in your browser, never logged).
 - **⚙️ Per-model hyperparameters** — temperature, top-p, top-k, repeat-penalty,
   max-tokens, seed. Run the **same model at different settings** as separate entries.
 - **📦 Model manager** — list, pull, and delete Ollama models from the UI.

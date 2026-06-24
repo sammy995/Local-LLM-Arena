@@ -42,3 +42,26 @@ export interface ModelInfo {
   family: string | null;
   params: string | null;
 }
+
+// ---- LLM-as-judge ----
+export type JudgeProvider = "local" | "anthropic" | "openai" | "openrouter";
+
+export interface JudgeRequest {
+  prompt: string;
+  judge_model: string;
+  candidates: { label: string; text: string }[];
+  provider: JudgeProvider;
+  api_key?: string;
+  base_url?: string;
+}
+
+export interface Verdict {
+  label: string;
+  score: number;
+  reason: string;
+}
+
+export interface JudgeResult {
+  verdicts: Verdict[];
+  winner: string;
+}

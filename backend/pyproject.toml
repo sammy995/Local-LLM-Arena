@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
     "ollama>=0.6.2",
+    "httpx>=0.28.1",          # OpenAI-compatible cloud judge
+    "anthropic>=0.69.0",      # Anthropic (Claude) cloud judge
 ]
 
 [project.optional-dependencies]

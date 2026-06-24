@@ -24,5 +24,13 @@ class Settings(BaseSettings):
         "http://localhost:5173",
     ]
 
+    # Optional cloud-judge API keys (fallback when the UI doesn't supply one per
+    # request). Keys are never logged. Local-first stays default; cloud is opt-in.
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+
 
 settings = Settings()

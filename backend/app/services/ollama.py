@@ -77,6 +77,20 @@ async def chat_stream(
         }
 
 
+async def chat_json(
+    model: str, messages: list[dict[str, str]], schema: dict[str, Any] | None = None
+) -> str:
+    """Non-streaming chat with structured output.
+
+    When `schema` (a JSON Schema) is given, Ollama constrains the model to that exact
+    shape — so even small models return valid, parseable JSON. Falls back to plain
+    JSON mode otherwise.
+    """
+    fmt: Any = schema if schema is not None else "json"
+    resp = await _client.chat(model=model, messages=messages, format=fmt, stream=False)
+    return (resp.message.content if resp.message else "") or "{}"
+
+
 async def pull(name: str) -> None:
     await _client.pull(name)
 

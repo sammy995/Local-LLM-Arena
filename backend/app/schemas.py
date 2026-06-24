@@ -1,4 +1,6 @@
 """Pydantic request/response models. Bounds here turn bad input into 422, not 500."""
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -33,3 +35,31 @@ class ChatRequest(BaseModel):
 class PullRequest(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
     model: str = Field(min_length=1, max_length=200)
+
+
+# ---- LLM-as-judge (automated evaluation) ----
+class Candidate(BaseModel):
+    label: str  # anonymized: "A", "B", ... (the judge never sees model names)
+    text: str
+
+
+class JudgeRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    prompt: str
+    judge_model: str
+    candidates: list[Candidate] = Field(min_length=2, max_length=6)
+    # "local" (Ollama) by default; the others use a per-request API key.
+    provider: Literal["local", "anthropic", "openai", "openrouter"] = "local"
+    api_key: str | None = None  # cloud only; never stored or logged
+    base_url: str | None = None  # override for OpenAI-compatible endpoints
+
+
+class Verdict(BaseModel):
+    label: str
+    score: float = Field(ge=0, le=10)
+    reason: str = ""
+
+
+class JudgeResult(BaseModel):
+    verdicts: list[Verdict]
+    winner: str = ""  # derived from the top score if the judge omits it
