@@ -11,7 +11,17 @@
 ![Ollama](https://img.shields.io/badge/Ollama-local-000000?logo=ollama&logoColor=white)
 ![No Cloud](https://img.shields.io/badge/cloud-none-success)
 
-<img src="docs/assets/screenshot-compare.png" width="860" alt="Local LLM Arena — side-by-side model comparison" />
+<img src="docs/assets/demo-compare.gif" width="860" alt="Local LLM Arena — one prompt, models compared side by side" />
+
+<sub>One prompt → every model answers in parallel, with live metrics and a 👑 on the fastest.</sub>
+
+</div>
+
+---
+
+<div align="center">
+
+**[Features](#features)** · **[Quick start](#quick-start-one-command)** · **[How it works](#how-it-works)** · **[Tech stack](#tech-stack)** · **[Development](#development)**
 
 </div>
 
@@ -48,8 +58,24 @@ models on private or sensitive data.
   highlighting, tooltips on every control, keyboard-accessible.
 
 <div align="center">
-<img src="docs/assets/screenshot-blind.png" width="820" alt="Blind evaluation mode" />
+
+### 🎭 Blind evaluation in action
+
+<img src="docs/assets/demo-blind.gif" width="820" alt="Blind evaluation — vote without bias, then reveal" />
+
+<sub>Hide the names, judge on quality alone, vote, then reveal who was who.</sub>
+
 </div>
+
+<details>
+<summary>More screenshots</summary>
+
+<div align="center">
+<img src="docs/assets/screenshot-home.png" width="800" alt="Home" />
+<img src="docs/assets/screenshot-compare.png" width="800" alt="Comparison" />
+</div>
+
+</details>
 
 ## Quick start (one command)
 

@@ -107,6 +107,7 @@ export function ArenaCard({
                 <button
                   onClick={() => onVote(1)}
                   disabled={revealed}
+                  aria-label="Vote best answer"
                   className={`rounded p-1 transition-colors hover:bg-accent disabled:opacity-40 ${
                     response.vote === 1 ? "text-[var(--success)]" : "text-muted-foreground"
                   }`}
@@ -118,6 +119,7 @@ export function ArenaCard({
                 <button
                   onClick={() => onVote(-1)}
                   disabled={revealed}
+                  aria-label="Vote weak answer"
                   className={`rounded p-1 transition-colors hover:bg-accent disabled:opacity-40 ${
                     response.vote === -1 ? "text-destructive" : "text-muted-foreground"
                   }`}
@@ -131,6 +133,7 @@ export function ArenaCard({
             <button
               onClick={copy}
               disabled={!response.text}
+              aria-label="Copy response"
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
             >
               <Copy size={13} />
@@ -140,6 +143,7 @@ export function ArenaCard({
             <button
               onClick={onRegenerate}
               disabled={response.streaming}
+              aria-label="Regenerate answer"
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
             >
               <RefreshCw size={13} />
