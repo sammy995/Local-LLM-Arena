@@ -1,0 +1,14 @@
+# Run the Arena in a container. Ollama runs on the HOST (so it can use your GPU).
+#   docker compose up --build   ->   http://localhost:7860
+services:
+  arena:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      # reach Ollama running on the host machine
+      - ARENA_OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      # required on Linux for host.docker.internal to resolve
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

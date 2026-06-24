@@ -5,6 +5,7 @@ import { paramSummary } from "@/lib/instance";
 import { useArena } from "@/store/arena";
 
 import { ArenaCard } from "./ArenaCard";
+import { JudgeBar } from "./JudgeBar";
 
 const modelFromId = (id: string) => id.split("__")[0];
 
@@ -94,6 +95,7 @@ export function ComparisonView() {
                 );
               })}
             </div>
+            <JudgeBar turnId={turn.id} />
           </div>
         );
       })}

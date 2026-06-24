@@ -1,10 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { streamChat } from "@/lib/api";
+import { judge as judgeApi, streamChat } from "@/lib/api";
 import { DEFAULT_HP, hpOf, makeInstance, makeInstanceId, type Hyperparams } from "@/lib/instance";
 import { readNdjson } from "@/lib/sse";
-import type { ModelInstance } from "@/lib/types";
+import type { JudgeProvider, ModelInstance } from "@/lib/types";
 
 export interface Metrics {
   eval_tokens: number;
@@ -19,13 +19,35 @@ export interface Response {
   metrics?: Metrics;
   vote: 0 | 1 | -1;
 }
+export interface JudgeView {
+  loading: boolean;
+  error?: string;
+  verdicts?: { label: string; score: number; reason: string }[];
+  winner?: string;
+  mapping: Record<string, string>; // judge label -> instanceId
+  by: string; // provider · model, for display
+}
 export interface Turn {
   id: string;
   user: string; // display text
   prompt: string; // text actually sent (may include file content)
   fileNote?: string;
   responses: Record<string, Response>; // instanceId -> response
+  judge?: JudgeView;
 }
+
+export interface JudgeConfig {
+  provider: JudgeProvider;
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+}
+const DEFAULT_JUDGE: JudgeConfig = {
+  provider: "local",
+  model: "",
+  apiKey: "",
+  baseUrl: "https://api.openai.com/v1",
+};
 export interface BlindState {
   enabled: boolean;
   revealed: boolean;
@@ -101,6 +123,10 @@ interface ArenaState {
   regenerate: (instId: string) => void;
   stopAll: () => void;
   exportJSON: () => { filename: string; data: string };
+  // LLM-as-judge
+  judgeConfig: JudgeConfig;
+  setJudgeConfig: (patch: Partial<JudgeConfig>) => void;
+  judgeTurn: (turnId: string) => void;
 }
 
 export const useArena = create<ArenaState>()(
@@ -345,11 +371,79 @@ export const useArena = create<ArenaState>()(
             data: JSON.stringify(data, null, 2),
           };
         },
+
+        judgeConfig: { ...DEFAULT_JUDGE },
+
+        setJudgeConfig: (patchCfg) =>
+          set((st) => ({ judgeConfig: { ...st.judgeConfig, ...patchCfg } })),
+
+        judgeTurn: (turnId) => {
+          const s = get().current();
+          const cfg = get().judgeConfig;
+          const turn = s.turns.find((t) => t.id === turnId);
+          if (!turn) return;
+          const setJudge = (jv: JudgeView) =>
+            patch((sess) => ({
+              ...sess,
+              turns: sess.turns.map((t) => (t.id !== turnId ? t : { ...t, judge: jv })),
+            }));
+          const by = `${cfg.provider} · ${cfg.model || "model"}`;
+
+          // anonymize candidates as A/B/C (or blind labels) so the judge isn't biased
+          const blindActive = s.blind.enabled && !s.blind.revealed;
+          const base = blindActive ? s.blind.order : s.instances.map((i) => i.id);
+          const present = Object.keys(turn.responses);
+          const ordered = [
+            ...base.filter((id) => present.includes(id)),
+            ...present.filter((id) => !base.includes(id)),
+          ];
+          const LETTERS = "ABCDEFGH".split("");
+          const candidates: { label: string; text: string }[] = [];
+          const mapping: Record<string, string> = {};
+          ordered.forEach((id, i) => {
+            const r = turn.responses[id];
+            if (!r || !r.text || r.error) return;
+            const label = blindActive ? s.blind.labels[id] ?? `Model ${LETTERS[i]}` : LETTERS[i];
+            candidates.push({ label, text: r.text });
+            mapping[label] = id;
+          });
+
+          if (!cfg.model) {
+            setJudge({ loading: false, mapping, by, error: "Pick a judge model first." });
+            return;
+          }
+          if (candidates.length < 2) {
+            setJudge({ loading: false, mapping, by, error: "Need ≥2 completed answers to judge." });
+            return;
+          }
+
+          setJudge({ loading: true, mapping, by });
+          judgeApi({
+            prompt: turn.user,
+            judge_model: cfg.model,
+            provider: cfg.provider,
+            api_key: cfg.apiKey || undefined,
+            // only the plain OpenAI provider uses a user-set base URL; OpenRouter
+            // (and the rest) use the backend's correct default.
+            base_url: cfg.provider === "openai" ? cfg.baseUrl || undefined : undefined,
+            candidates,
+          })
+            .then((res) =>
+              setJudge({ loading: false, mapping, by, verdicts: res.verdicts, winner: res.winner }),
+            )
+            .catch((e: unknown) =>
+              setJudge({ loading: false, mapping, by, error: String((e as Error).message ?? e) }),
+            );
+        },
       };
     },
     {
       name: "arena_state_v1",
-      partialize: (st) => ({ sessions: st.sessions, currentId: st.currentId }),
+      partialize: (st) => ({
+        sessions: st.sessions,
+        currentId: st.currentId,
+        judgeConfig: st.judgeConfig,
+      }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // clear any stuck streaming flags from a previous run

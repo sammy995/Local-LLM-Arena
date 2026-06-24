@@ -1,0 +1,12 @@
+**/node_modules
+**/.venv
+**/__pycache__
+**/dist
+**/.vite
+.git
+improvement-plan
+docs/assets/*.gif
+*.md
+!backend/**/*.md
+.github
+.conda

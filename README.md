@@ -4,6 +4,7 @@
 
 **Compare your local LLMs side by side — stream, score, and pick the best, 100% on your machine.**
 
+[![CI](https://github.com/sammy995/Local-LLM-Arena/actions/workflows/ci.yml/badge.svg)](https://github.com/sammy995/Local-LLM-Arena/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ember.svg?color=e8843a)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
@@ -48,6 +49,10 @@ models on private or sensitive data.
   with a 👑 crown on the fastest.
 - **🎭 Blind evaluation** — hide model names (“Model A/B/C”), randomize order, vote 👍/👎,
   then reveal the mapping and vote tally. Voting locks on reveal to keep results honest.
+- **🧑‍⚖️ Auto-judge (LLM-as-judge)** — score the answers automatically and pick a winner,
+  using a **local** model or a **cloud** model with your own API key (Anthropic, OpenRouter,
+  or any OpenAI-compatible endpoint). Answers are anonymized to the judge to avoid bias;
+  cloud judging is opt-in with a clear privacy notice (keys stay in your browser, never logged).
 - **⚙️ Per-model hyperparameters** — temperature, top-p, top-k, repeat-penalty,
   max-tokens, seed. Run the **same model at different settings** as separate entries.
 - **📦 Model manager** — list, pull, and delete Ollama models from the UI.
@@ -100,6 +105,14 @@ Then, from the project root:
 
 This installs the backend (virtual env + deps) and frontend (npm + production build),
 then serves the whole app as a **single local process** at **http://127.0.0.1:7860**.
+
+### Or with Docker
+
+Ollama runs on the host (keeping your GPU); the app runs in a container and reaches it:
+
+```bash
+docker compose up --build      # -> http://localhost:7860
+```
 
 ## How it works
 

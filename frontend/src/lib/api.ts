@@ -1,4 +1,4 @@
-import type { ChatRequest, ModelInfo } from "./types";
+import type { ChatRequest, JudgeRequest, JudgeResult, ModelInfo } from "./types";
 
 // Optional bearer token (set window.__ARENA_TOKEN__ if backend requires it).
 function headers(): HeadersInit {
@@ -28,6 +28,19 @@ export async function streamChat(body: ChatRequest, signal?: AbortSignal): Promi
   });
   if (!r.ok || !r.body) throw new Error(`POST /api/chat/stream -> ${r.status}`);
   return r;
+}
+
+export async function judge(req: JudgeRequest): Promise<JudgeResult> {
+  const r = await fetch("/api/judge", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(req),
+  });
+  if (!r.ok) {
+    const detail = await r.json().catch(() => ({}));
+    throw new Error(detail.detail || `judge -> ${r.status}`);
+  }
+  return r.json();
 }
 
 export async function pullModel(model: string): Promise<void> {

@@ -1,7 +1,11 @@
 """Lightweight security for a local single-user app: optional bearer + origin guard."""
+from urllib.parse import urlparse
+
 from fastapi import Header, HTTPException, Request
 
 from app.config import settings
+
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]", "host.docker.internal"}
 
 
 async def require_auth(authorization: str | None = Header(default=None)) -> None:
@@ -23,5 +27,10 @@ async def same_origin(request: Request) -> None:
         return  # non-browser client (curl, tests)
     allowed = set(settings.allowed_origins)
     allowed.add(f"http://{settings.host}:{settings.port}")
-    if origin not in allowed:
-        raise HTTPException(status_code=403, detail=f"origin not allowed: {origin}")
+    if origin in allowed:
+        return
+    # Local access (any port on localhost/127.0.0.1, incl. Docker) is trusted — a
+    # malicious third-party page has its own non-local origin and is still blocked.
+    if (urlparse(origin).hostname or "") in _LOCAL_HOSTS:
+        return
+    raise HTTPException(status_code=403, detail=f"origin not allowed: {origin}")

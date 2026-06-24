@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import settings
-from app.routers import chat, models
+from app.routers import chat, judge, models
 
 app = FastAPI(title="Local LLM Arena", version=__version__)
 
@@ -20,6 +20,7 @@ app.add_middleware(
 
 app.include_router(models.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(judge.router, prefix="/api")
 
 # In production, serve the built SPA (frontend/dist) so it's one local process.
 _dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
