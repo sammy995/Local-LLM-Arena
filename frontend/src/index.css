@@ -133,6 +133,14 @@
   ::selection {
     background: var(--ember-glow);
   }
+  /* keyboard a11y: visible focus on every interactive element */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

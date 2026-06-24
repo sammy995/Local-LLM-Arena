@@ -61,7 +61,12 @@ export function ArenaCard({
       </header>
 
       {/* body */}
-      <div className="min-h-[3rem] flex-1 px-3.5 py-3 text-sm">
+      <div
+        className="min-h-[3rem] flex-1 px-3.5 py-3 text-sm"
+        aria-live="polite"
+        aria-busy={response.streaming}
+        aria-label={`Response from ${name}`}
+      >
         {response.error ? (
           <p className="font-mono text-xs text-destructive">⚠ {response.error}</p>
         ) : response.text ? (

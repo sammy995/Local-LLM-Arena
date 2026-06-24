@@ -160,6 +160,12 @@ export function ControlDock() {
   return (
     <div className="sticky bottom-0 z-10 border-t border-border/70 bg-background/85 backdrop-blur-md">
       <div className="mx-auto w-full max-w-6xl px-4 py-3">
+        {models.length === 0 && (
+          <p className="mb-2 rounded-md border border-border bg-card px-3 py-1.5 text-center text-xs text-muted-foreground">
+            No models installed yet — open <span className="font-semibold">📦 Models</span> (top
+            right) to download one, e.g. <span className="font-mono">gemma3:1b</span>.
+          </p>
+        )}
         {/* model selection row */}
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <Tip content="Add a model with default settings">
