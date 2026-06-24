@@ -38,11 +38,14 @@ function AddAdvancedDialog({ models }: { models: ModelInfo[] }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Tip content="Add a model with custom hyperparameters (or the same model twice with different settings)">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <SlidersHorizontal size={14} /> Advanced
-          </Button>
-        </Tip>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          title="Add a model with custom hyperparameters (same model twice with different settings = multi-config A/B test)"
+        >
+          <SlidersHorizontal size={14} /> Advanced
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>Add model with custom settings</DialogTitle>
@@ -88,13 +91,14 @@ function ModelChip({ inst }: { inst: ModelInstance }) {
     <span className="inline-flex items-center overflow-hidden rounded-md border border-ember/40 bg-ember/10 font-mono text-xs text-ember">
       <Dialog>
         <DialogTrigger asChild>
-          <Tip content="Edit hyperparameters">
-            <button className="flex items-center gap-1.5 px-2 py-1 transition-colors hover:bg-ember/20">
-              <Settings2 size={11} />
-              <span className="font-semibold">{inst.model}</span>
-              <span className="text-ember/70">{paramSummary(inst)}</span>
-            </button>
-          </Tip>
+          <button
+            title="Edit hyperparameters"
+            className="flex items-center gap-1.5 px-2 py-1 transition-colors hover:bg-ember/20"
+          >
+            <Settings2 size={11} />
+            <span className="font-semibold">{inst.model}</span>
+            <span className="text-ember/70">{paramSummary(inst)}</span>
+          </button>
         </DialogTrigger>
         <DialogContent className="w-[min(94vw,460px)]">
           <DialogTitle>{inst.model}</DialogTitle>
@@ -200,11 +204,14 @@ export function ControlDock() {
             {sess.blind.enabled && hasTurns && (
               <RevealDialog
                 trigger={
-                  <Tip content="Reveal which model is which + vote tally">
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Eye size={14} /> {sess.blind.revealed ? "Results" : "Reveal"}
-                    </Button>
-                  </Tip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    title="Reveal which model is which + vote tally"
+                  >
+                    <Eye size={14} /> {sess.blind.revealed ? "Results" : "Reveal"}
+                  </Button>
                 }
               />
             )}

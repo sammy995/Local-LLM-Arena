@@ -66,11 +66,14 @@ export default function App() {
             <div className="flex items-center gap-2">
               <ModelManagerDialog
                 trigger={
-                  <Tip content="Download or delete Ollama models">
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Package size={15} /> Models
-                    </Button>
-                  </Tip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    title="Download or delete Ollama models"
+                  >
+                    <Package size={15} /> Models
+                  </Button>
                 }
               />
               <Tip content="Toggle dark / light">
