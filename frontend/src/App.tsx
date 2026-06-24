@@ -1,9 +1,10 @@
-import { Moon, Package, PanelLeft, Sun } from "lucide-react";
+import { Moon, Package, PanelLeft, Sun, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AnvilMark } from "@/components/brand/AnvilMark";
 import { ComparisonView } from "@/components/arena/ComparisonView";
 import { ControlDock } from "@/components/arena/ControlDock";
+import { LeaderboardDialog } from "@/components/arena/LeaderboardDialog";
 import { ModelManagerDialog } from "@/components/arena/ModelManagerDialog";
 import { Sidebar } from "@/components/arena/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,18 @@ export default function App() {
               </Tip>
             </div>
             <div className="flex items-center gap-2">
+              <LeaderboardDialog
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Leaderboard"
+                    title="Elo leaderboard across all your comparisons (judge + votes)"
+                  >
+                    <Trophy size={16} />
+                  </Button>
+                }
+              />
               <ModelManagerDialog
                 trigger={
                   <Button

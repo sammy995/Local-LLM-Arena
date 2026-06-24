@@ -53,6 +53,8 @@ models on private or sensitive data.
   using a **local** model or a **cloud** model with your own API key (Anthropic, OpenRouter,
   or any OpenAI-compatible endpoint). Answers are anonymized to the judge to avoid bias;
   cloud judging is opt-in with a clear privacy notice (keys stay in your browser, never logged).
+- **🏆 Elo leaderboard** — a running, cross-comparison ranking of your models (an offline,
+  private Chatbot Arena), built from judge scores and 👍/👎 votes via pairwise Elo.
 - **⚙️ Per-model hyperparameters** — temperature, top-p, top-k, repeat-penalty,
   max-tokens, seed. Run the **same model at different settings** as separate entries.
 - **📦 Model manager** — list, pull, and delete Ollama models from the UI.
