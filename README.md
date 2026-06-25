@@ -55,6 +55,9 @@ models on private or sensitive data.
   cloud judging is opt-in with a clear privacy notice (keys stay in your browser, never logged).
 - **🏆 Elo leaderboard** — a running, cross-comparison ranking of your models (an offline,
   private Chatbot Arena), built from judge scores and 👍/👎 votes via pairwise Elo.
+- **🧪 Batch benchmark** — run a whole prompt set (paste or load `.txt`/`.jsonl`/`.csv`)
+  across your models, auto-judge every prompt, and aggregate a reproducible Elo report —
+  exportable as Markdown or JSON for sharing or publication.
 - **⚙️ Per-model hyperparameters** — temperature, top-p, top-k, repeat-penalty,
   max-tokens, seed. Run the **same model at different settings** as separate entries.
 - **📦 Model manager** — list, pull, and delete Ollama models from the UI.

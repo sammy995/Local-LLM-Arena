@@ -1,7 +1,8 @@
-import { Moon, Package, PanelLeft, Sun, Trophy } from "lucide-react";
+import { FlaskConical, Moon, Package, PanelLeft, Sun, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AnvilMark } from "@/components/brand/AnvilMark";
+import { BenchmarkDialog } from "@/components/arena/BenchmarkDialog";
 import { ComparisonView } from "@/components/arena/ComparisonView";
 import { ControlDock } from "@/components/arena/ControlDock";
 import { LeaderboardDialog } from "@/components/arena/LeaderboardDialog";
@@ -65,6 +66,18 @@ export default function App() {
               </Tip>
             </div>
             <div className="flex items-center gap-2">
+              <BenchmarkDialog
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Benchmark"
+                    title="Run a prompt set across models → Elo report"
+                  >
+                    <FlaskConical size={16} />
+                  </Button>
+                }
+              />
               <LeaderboardDialog
                 trigger={
                   <Button
