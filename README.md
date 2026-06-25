@@ -142,6 +142,10 @@ Ollama  ·  localhost:11434  ·  your models, your hardware
 See [docs/adr/0001-fastapi-react.md](docs/adr/0001-fastapi-react.md) for the
 architecture decision record, and the live OpenAPI docs at `http://127.0.0.1:7860/docs`.
 
+📄 **[Technical report](docs/TECHNICAL_REPORT.md)** — the evaluation methodology in
+detail: blind-vote bias controls, anonymized LLM-as-judge, the exact pairwise-Elo math,
+a reproducibility protocol, and an honest limitations section.
+
 ## Tech stack
 
 | Layer | Choice |
