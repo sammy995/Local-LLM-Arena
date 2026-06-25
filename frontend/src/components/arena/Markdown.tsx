@@ -1,15 +1,16 @@
-import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
-import remarkGfm from "remark-gfm";
+import { lazy, Suspense } from "react";
 
-// react-markdown sanitizes by default (no raw HTML) — replaces the old app's 69
-// unsanitized innerHTML writes. remark-gfm = tables/lists; rehype-highlight = code.
+// Heavy renderer (react-markdown + highlight.js) is split into its own async chunk.
+// Until it loads, show the raw text wrapped — streaming stays readable with zero blank
+// flash, and the first model response is what triggers the (one-time) chunk fetch.
+const MarkdownInner = lazy(() => import("./MarkdownInner"));
+
 export function Markdown({ children }: { children: string }) {
   return (
     <div className="markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-        {children}
-      </ReactMarkdown>
+      <Suspense fallback={<div className="whitespace-pre-wrap break-words">{children}</div>}>
+        <MarkdownInner>{children}</MarkdownInner>
+      </Suspense>
     </div>
   );
 }

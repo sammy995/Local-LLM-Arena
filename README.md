@@ -41,6 +41,23 @@ models on private or sensitive data.
 
 > Comparison is the point. A single-model chat is just an arena with one model in it.
 
+## Why not just chat?
+
+Other local UIs let you **talk to** models. Local LLM Arena is built to **evaluate** them —
+blind voting, an automated LLM judge, a private Elo leaderboard, and reproducible batch
+benchmarks. It's a Chatbot Arena you run on your own machine, on your own prompts.
+
+| Capability | **Local LLM Arena** | Open WebUI | LM Studio | Chatbot Arena (cloud) |
+| --- | :---: | :---: | :---: | :---: |
+| Runs 100% locally, data stays private | ✅ | ✅ | ✅ | ❌ cloud |
+| Side-by-side, up to 6 models in parallel | ✅ | ✅ | ❌ | ✅ (2, random) |
+| Blind evaluation + 👍/👎 vote | ✅ | ❌ | ❌ | ✅ |
+| Automated LLM-as-judge (local **or** cloud key) | ✅ | ❌ | ❌ | ❌ |
+| Private Elo leaderboard across runs | ✅ | ❌ | ❌ | ✅ (public) |
+| Batch benchmark → reproducible Elo report | ✅ | ❌ | ❌ | ❌ |
+| Per-model hyperparameter sweeps | ✅ | partial | ✅ | ❌ |
+| Open source (MIT) | ✅ | ✅ | ❌ | ✅ |
+
 ## Features
 
 - **🆚 Side-by-side comparison** — one prompt → up to 6 models answering in parallel,

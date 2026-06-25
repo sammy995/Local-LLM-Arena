@@ -1,7 +1,7 @@
 """FastAPI app: CORS for the Vite dev origin, /api routers, optional static SPA serving."""
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -10,6 +10,30 @@ from app.config import settings
 from app.routers import chat, judge, models
 
 app = FastAPI(title="Local LLM Arena", version=__version__)
+
+# Defense-in-depth headers. CSP keeps everything same-origin (the app makes no external
+# calls); 'unsafe-inline' is needed for Vite's injected styles. connect-src stays 'self'
+# so a compromised dependency can't beacon a user's prompts or pasted API key off-box.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+        "base-uri 'self'; frame-ancestors 'none'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for key, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,

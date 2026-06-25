@@ -32,6 +32,7 @@ async def openai_compatible_json(
     url = base_url.rstrip("/") + "/chat/completions"
     body = {
         "model": model,
+        "max_tokens": 2048,  # hard cap — a judge verdict is small; bounds cost/runaway output
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
