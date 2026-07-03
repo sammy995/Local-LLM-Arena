@@ -88,7 +88,14 @@ async def chat_json(
     JSON mode otherwise.
     """
     fmt: Any = schema if schema is not None else "json"
-    resp = await _client.chat(model=model, messages=messages, format=fmt, stream=False)
+    resp = await _client.chat(
+        model=model,
+        messages=messages,
+        format=fmt,
+        stream=False,
+        # pinned sampling -> same inputs give the same verdict (reproducible reports)
+        options={"temperature": 0.0, "seed": 42},
+    )
     return (resp.message.content if resp.message else "") or "{}"
 
 

@@ -18,21 +18,21 @@ async def anthropic_json(model: str, system: str, user: str, api_key: str) -> st
     resp = await client.messages.create(
         model=model,
         max_tokens=2048,
+        temperature=0,  # reproducible verdicts
         system=system,
         messages=[{"role": "user", "content": user}],
     )
     return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text") or "{}"
 
 
-async def openai_compatible_json(
-    model: str, system: str, user: str, schema: dict[str, Any], api_key: str, base_url: str
-) -> str:
-    """Judge via any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Together, …)
-    using native structured outputs (response_format json_schema)."""
-    url = base_url.rstrip("/") + "/chat/completions"
-    body = {
+def build_openai_body(
+    model: str, system: str, user: str, schema: dict[str, Any]
+) -> dict[str, Any]:
+    """Judge request body. temperature 0 pins the verdict as far as the provider allows."""
+    return {
         "model": model,
         "max_tokens": 2048,  # hard cap — a judge verdict is small; bounds cost/runaway output
+        "temperature": 0,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -42,6 +42,15 @@ async def openai_compatible_json(
             "json_schema": {"name": "verdict", "schema": schema, "strict": True},
         },
     }
+
+
+async def openai_compatible_json(
+    model: str, system: str, user: str, schema: dict[str, Any], api_key: str, base_url: str
+) -> str:
+    """Judge via any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Together, …)
+    using native structured outputs (response_format json_schema)."""
+    url = base_url.rstrip("/") + "/chat/completions"
+    body = build_openai_body(model, system, user, schema)
     headers = {
         "Authorization": f"Bearer {api_key}",
         # OpenRouter uses these for optional attribution; harmless elsewhere.
