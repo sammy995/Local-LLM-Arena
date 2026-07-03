@@ -1,6 +1,6 @@
 [project]
 name = "local-llm-arena-backend"
-version = "4.0.0"
+version = "4.1.0"
 description = "Async FastAPI backend for Local LLM Arena (talks to local Ollama)."
 requires-python = ">=3.11"
 dependencies = [
