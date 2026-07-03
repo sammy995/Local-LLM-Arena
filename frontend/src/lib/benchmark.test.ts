@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { benchToMarkdown, buildSession, type BenchResult, type PromptResult } from "./benchmark";
-import { computeLeaderboard } from "./elo";
+import { computeLeaderboard, extractMatches } from "./elo";
 import type { ModelInstance } from "./types";
 
 const instances: ModelInstance[] = [
@@ -22,6 +22,16 @@ const perPrompt: PromptResult[] = [
   },
 ];
 
+function makeResult(): BenchResult {
+  const session = buildSession(perPrompt, instances);
+  return {
+    perPrompt,
+    leaderboard: computeLeaderboard([session]),
+    matches: extractMatches([session]),
+    judgedCount: 1,
+  };
+}
+
 describe("benchmark aggregation", () => {
   it("buildSession feeds the Elo engine and ranks the judged winner", () => {
     const board = computeLeaderboard([buildSession(perPrompt, instances)]);
@@ -29,15 +39,11 @@ describe("benchmark aggregation", () => {
     expect(board[0].wins).toBe(1);
   });
 
-  it("benchToMarkdown emits a leaderboard table", () => {
-    const result: BenchResult = {
-      perPrompt,
-      leaderboard: computeLeaderboard([buildSession(perPrompt, instances)]),
-      judgedCount: 1,
-    };
-    const md = benchToMarkdown(result, "local · m");
-    expect(md).toContain("| # | Model | Elo | W–L–T | Matches |");
+  it("benchToMarkdown emits leaderboard with CI plus a win matrix", () => {
+    const md = benchToMarkdown(makeResult(), "local · m");
+    expect(md).toContain("| # | Model | Elo | 95% CI | W–L–T | Matches |");
     expect(md).toMatch(/\| 1 \| A \|/);
+    expect(md).toContain("Win matrix (row beats column)");
     expect(md).toContain("Per-prompt winners");
   });
 });
