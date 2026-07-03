@@ -10,7 +10,8 @@ from ollama import AsyncClient
 from app.config import settings
 from app.schemas import Message, ModelInstance
 
-_client = AsyncClient(host=settings.ollama_host)
+# extra kwargs pass through to httpx; without a timeout a hung Ollama hangs forever
+_client = AsyncClient(host=settings.ollama_host, timeout=settings.request_timeout_s)
 
 
 def build_options(inst: ModelInstance) -> dict[str, Any]:
