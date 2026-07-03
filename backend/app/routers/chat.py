@@ -98,6 +98,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                     continue
                 yield json.dumps(item) + "\n"
         finally:
-            await task
+            # client gone (or stream finished): stop any still-running generations
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
