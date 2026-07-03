@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 import { judge as judgeApi, streamChat } from "@/lib/api";
 import { DEFAULT_HP, hpOf, makeInstance, makeInstanceId, type Hyperparams } from "@/lib/instance";
+import { shuffle } from "@/lib/shuffle";
 import { readNdjson } from "@/lib/sse";
 import type { JudgeProvider, ModelInstance } from "@/lib/types";
 
@@ -66,15 +67,6 @@ export interface Session {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const LABELS = "ABCDEFGHIJ".split("");
-
-function shuffle<T>(arr: T[]): T[] {
-  const r = [...arr];
-  for (let i = r.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [r[i], r[j]] = [r[j], r[i]];
-  }
-  return r;
-}
 
 function computeBlind(instances: ModelInstance[]): Pick<BlindState, "order" | "labels"> {
   const order = shuffle(instances.map((i) => i.id));
@@ -399,7 +391,9 @@ export const useArena = create<ArenaState>()(
 
           // anonymize candidates as A/B/C (or blind labels) so the judge isn't biased
           const blindActive = s.blind.enabled && !s.blind.revealed;
-          const base = blindActive ? s.blind.order : s.instances.map((i) => i.id);
+          // blind mode already randomized the order; otherwise shuffle per judge call
+          // so no model always sits at label "A" (position bias)
+          const base = blindActive ? s.blind.order : shuffle(s.instances.map((i) => i.id));
           const present = Object.keys(turn.responses);
           const ordered = [
             ...base.filter((id) => present.includes(id)),

@@ -2,9 +2,26 @@ import type { JudgeConfig, Session } from "@/store/arena";
 
 import { chatOnce, judge } from "./api";
 import { computeLeaderboard, type LeaderRow } from "./elo";
+import { shuffle } from "./shuffle";
 import type { ModelInstance } from "./types";
 
 const LETTERS = "ABCDEFGH".split("");
+
+/** Randomize candidate order per judge call so no model always sits at label "A"
+ *  (position bias). Returns the labeled order + label -> instanceId mapping. */
+export function assignLabels(
+  ids: string[],
+  rng: () => number = Math.random,
+): { order: { label: string; id: string }[]; mapping: Record<string, string> } {
+  const shuffled = shuffle(ids, rng);
+  const mapping: Record<string, string> = {};
+  const order = shuffled.map((id, i) => {
+    const label = LETTERS[i] ?? `M${i}`;
+    mapping[label] = id;
+    return { label, id };
+  });
+  return { order, mapping };
+}
 
 export interface PromptResult {
   prompt: string;
@@ -79,13 +96,8 @@ export async function runBenchmark(
         .map((i) => i.id)
         .filter((id) => answers[id].text && !answers[id].error);
       if (ids.length >= 2) {
-        const candidates: { label: string; text: string }[] = [];
-        const mapping: Record<string, string> = {};
-        ids.forEach((id, i) => {
-          const label = LETTERS[i] ?? `M${i}`;
-          candidates.push({ label, text: answers[id].text });
-          mapping[label] = id;
-        });
+        const { order, mapping } = assignLabels(ids);
+        const candidates = order.map(({ label, id }) => ({ label, text: answers[id].text }));
         try {
           const jr = await judge({
             prompt,
