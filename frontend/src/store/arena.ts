@@ -129,6 +129,14 @@ interface ArenaState {
   judgeTurn: (turnId: string) => void;
 }
 
+// What survives a reload. The API key deliberately does NOT — it stays in memory
+// only, so an XSS or a shared machine can't read it back out of localStorage.
+export const persistedState = (st: ArenaState) => ({
+  sessions: st.sessions,
+  currentId: st.currentId,
+  judgeConfig: { ...st.judgeConfig, apiKey: "" },
+});
+
 export const useArena = create<ArenaState>()(
   persist(
     (set, get) => {
@@ -439,11 +447,7 @@ export const useArena = create<ArenaState>()(
     },
     {
       name: "arena_state_v1",
-      partialize: (st) => ({
-        sessions: st.sessions,
-        currentId: st.currentId,
-        judgeConfig: st.judgeConfig,
-      }),
+      partialize: persistedState,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // clear any stuck streaming flags from a previous run
