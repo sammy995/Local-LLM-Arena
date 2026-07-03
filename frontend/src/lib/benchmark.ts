@@ -1,10 +1,34 @@
 import type { JudgeConfig, Session } from "@/store/arena";
 
 import { chatOnce, judge } from "./api";
-import { computeLeaderboard, type LeaderRow } from "./elo";
+import {
+  bootstrapCI,
+  eloFromMatches,
+  extractMatches,
+  winMatrix,
+  type LeaderRow,
+  type Match,
+} from "./elo";
+import { shuffle } from "./shuffle";
 import type { ModelInstance } from "./types";
 
 const LETTERS = "ABCDEFGH".split("");
+
+/** Randomize candidate order per judge call so no model always sits at label "A"
+ *  (position bias). Returns the labeled order + label -> instanceId mapping. */
+export function assignLabels(
+  ids: string[],
+  rng: () => number = Math.random,
+): { order: { label: string; id: string }[]; mapping: Record<string, string> } {
+  const shuffled = shuffle(ids, rng);
+  const mapping: Record<string, string> = {};
+  const order = shuffled.map((id, i) => {
+    const label = LETTERS[i] ?? `M${i}`;
+    mapping[label] = id;
+    return { label, id };
+  });
+  return { order, mapping };
+}
 
 export interface PromptResult {
   prompt: string;
@@ -18,6 +42,7 @@ export interface PromptResult {
 export interface BenchResult {
   perPrompt: PromptResult[];
   leaderboard: LeaderRow[];
+  matches: Match[];
   judgedCount: number;
 }
 
@@ -79,13 +104,8 @@ export async function runBenchmark(
         .map((i) => i.id)
         .filter((id) => answers[id].text && !answers[id].error);
       if (ids.length >= 2) {
-        const candidates: { label: string; text: string }[] = [];
-        const mapping: Record<string, string> = {};
-        ids.forEach((id, i) => {
-          const label = LETTERS[i] ?? `M${i}`;
-          candidates.push({ label, text: answers[id].text });
-          mapping[label] = id;
-        });
+        const { order, mapping } = assignLabels(ids);
+        const candidates = order.map(({ label, id }) => ({ label, text: answers[id].text }));
         try {
           const jr = await judge({
             prompt,
@@ -107,28 +127,51 @@ export async function runBenchmark(
   }
 
   onProgress(prompts.length, prompts.length, "Aggregating");
-  const leaderboard = computeLeaderboard([buildSession(perPrompt, instances)]);
+  const matches = extractMatches([buildSession(perPrompt, instances)]);
+  const leaderboard = eloFromMatches(matches);
   const judgedCount = perPrompt.filter((p) => p.verdicts?.length).length;
-  return { perPrompt, leaderboard, judgedCount };
+  return { perPrompt, leaderboard, matches, judgedCount };
 }
 
 export function benchToMarkdown(result: BenchResult, judgeLabel: string): string {
+  const ci = bootstrapCI(result.matches);
   const lines: string[] = [];
   lines.push(`# Local LLM Arena — Benchmark`);
   lines.push("");
   lines.push(`- Prompts: ${result.perPrompt.length}`);
   lines.push(`- Judged: ${result.judgedCount}`);
   lines.push(`- Judge: ${judgeLabel}`);
+  lines.push(`- Pairwise matches: ${result.matches.length}`);
   lines.push(`- Generated: ${new Date().toISOString()}`);
   lines.push("");
   lines.push(`## Leaderboard (Elo)`);
   lines.push("");
-  lines.push(`| # | Model | Elo | W–L–T | Matches |`);
-  lines.push(`|---|-------|-----|-------|---------|`);
+  lines.push(`| # | Model | Elo | 95% CI | W–L–T | Matches |`);
+  lines.push(`|---|-------|-----|--------|-------|---------|`);
   result.leaderboard.forEach((r, i) => {
-    lines.push(`| ${i + 1} | ${r.model} | ${r.elo} | ${r.wins}–${r.losses}–${r.ties} | ${r.matches} |`);
+    const iv = ci.get(r.model);
+    const cell = iv ? `${iv.lo}–${iv.hi}` : "—";
+    lines.push(
+      `| ${i + 1} | ${r.model} | ${r.elo} | ${cell} | ${r.wins}–${r.losses}–${r.ties} | ${r.matches} |`,
+    );
   });
   lines.push("");
+  lines.push(
+    `> CI = 95% bootstrap interval (200 resamples of the match list). ` +
+      `Overlapping intervals mean the data can't separate those models yet.`,
+  );
+  lines.push("");
+  const { models, wins } = winMatrix(result.matches);
+  if (models.length) {
+    lines.push(`## Win matrix (row beats column)`);
+    lines.push("");
+    lines.push(`| | ${models.join(" | ")} |`);
+    lines.push(`|---|${models.map(() => "---").join("|")}|`);
+    for (const m of models) {
+      lines.push(`| **${m}** | ${models.map((n) => (n === m ? "—" : wins[m][n])).join(" | ")} |`);
+    }
+    lines.push("");
+  }
   lines.push(`## Per-prompt winners`);
   lines.push("");
   const winnerModel = (p: PromptResult) =>
@@ -142,13 +185,16 @@ export function benchToMarkdown(result: BenchResult, judgeLabel: string): string
 }
 
 export function benchToJSON(result: BenchResult, meta: Record<string, unknown>): string {
+  const ci = bootstrapCI(result.matches);
   return JSON.stringify(
     {
       app: "Local LLM Arena",
       kind: "benchmark",
       generatedAt: new Date().toISOString(),
       ...meta,
-      leaderboard: result.leaderboard,
+      totalMatches: result.matches.length,
+      leaderboard: result.leaderboard.map((r) => ({ ...r, ci95: ci.get(r.model) ?? null })),
+      winMatrix: winMatrix(result.matches),
       results: result.perPrompt,
     },
     null,

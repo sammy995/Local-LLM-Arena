@@ -69,12 +69,15 @@ benchmarks. It's a Chatbot Arena you run on your own machine, on your own prompt
 - **🧑‍⚖️ Auto-judge (LLM-as-judge)** — score the answers automatically and pick a winner,
   using a **local** model or a **cloud** model with your own API key (Anthropic, OpenRouter,
   or any OpenAI-compatible endpoint). Answers are anonymized to the judge to avoid bias;
-  cloud judging is opt-in with a clear privacy notice (keys stay in your browser, never logged).
+  cloud judging is opt-in with a clear privacy notice (keys stay in memory only — never written
+  to disk or logs). Candidate order is randomized per call and judge sampling is pinned
+  (temperature 0), so verdicts are position-bias-mitigated and reproducible.
 - **🏆 Elo leaderboard** — a running, cross-comparison ranking of your models (an offline,
-  private Chatbot Arena), built from judge scores and 👍/👎 votes via pairwise Elo.
+  private Chatbot Arena), built from judge scores and 👍/👎 votes via pairwise Elo, with
+  **95% bootstrap confidence intervals** so you can tell signal from small-sample noise.
 - **🧪 Batch benchmark** — run a whole prompt set (paste or load `.txt`/`.jsonl`/`.csv`)
-  across your models, auto-judge every prompt, and aggregate a reproducible Elo report —
-  exportable as Markdown or JSON for sharing or publication.
+  across your models, auto-judge every prompt, and aggregate a reproducible Elo report — with
+  confidence intervals and a win matrix — exportable as Markdown or JSON for sharing or publication.
 - **⚙️ Per-model hyperparameters** — temperature, top-p, top-k, repeat-penalty,
   max-tokens, seed. Run the **same model at different settings** as separate entries.
 - **📦 Model manager** — list, pull, and delete Ollama models from the UI.

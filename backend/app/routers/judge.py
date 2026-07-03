@@ -4,12 +4,12 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-logger = logging.getLogger("arena.judge")
-
 from app.config import settings
 from app.schemas import JudgeRequest, JudgeResult
-from app.security import require_auth
+from app.security import require_auth, same_origin
 from app.services import cloud, ollama
+
+logger = logging.getLogger("arena.judge")
 
 router = APIRouter()
 
@@ -133,7 +133,7 @@ async def _run_judge(req: JudgeRequest) -> str:
     return await ollama.chat_json(req.judge_model, messages, schema=_JUDGE_SCHEMA)
 
 
-@router.post("/judge", dependencies=[Depends(require_auth)])
+@router.post("/judge", dependencies=[Depends(require_auth), Depends(same_origin)])
 async def judge(req: JudgeRequest) -> JudgeResult:
     try:
         raw = await _run_judge(req)

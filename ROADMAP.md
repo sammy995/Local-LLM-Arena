@@ -13,17 +13,19 @@ machine. Everything here keeps the local-first, no-telemetry, MIT-open principle
 - **Private Elo leaderboard** — pairwise Elo across runs from judge scores + votes.
 - **Batch benchmark** — run a prompt set across models and export a reproducible
   Markdown/JSON Elo report.
+- **Confidence intervals** — 95% bootstrap CIs on Elo plus a win matrix, in the
+  leaderboard and in benchmark reports.
+- **Judge bias controls** — randomized candidate order per judge call and pinned
+  judge sampling (temperature 0, fixed local seed).
 
 ## Next
 
-- **Statistical rigor in benchmark reports** — confidence intervals on Elo, comparison
-  counts per pair, and a win/loss/tie matrix, so results are defensible.
 - **Judge robustness** — optional multi-judge / self-consistency voting, and a documented
-  bias check (position bias, length bias) surfaced in the report.
+  length-bias check surfaced in the report.
 - **More inference backends** — bring llama.cpp / any OpenAI-compatible endpoint under the
   same comparison UI, alongside Ollama.
 
 ## How to contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Highest-value areas: statistical rigor in
-benchmark reports, judge-bias evaluation, and additional inference backends.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Highest-value areas: judge-bias
+evaluation (multi-judge, length bias) and additional inference backends.

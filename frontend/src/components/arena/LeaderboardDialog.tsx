@@ -1,5 +1,5 @@
 import { Crown } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import {
   Dialog,
@@ -8,12 +8,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { computeLeaderboard } from "@/lib/elo";
+import { bootstrapCI, eloFromMatches, extractMatches } from "@/lib/elo";
 import { useArena } from "@/store/arena";
 
 export function LeaderboardDialog({ trigger }: { trigger: ReactNode }) {
   const sessions = useArena((s) => s.sessions);
-  const board = computeLeaderboard(sessions);
+  // bootstrap resampling is O(iterations x matches) — memoize per sessions snapshot
+  const { board, ci } = useMemo(() => {
+    const matches = extractMatches(sessions);
+    return { board: eloFromMatches(matches), ci: bootstrapCI(matches) };
+  }, [sessions]);
 
   return (
     <Dialog>
@@ -38,37 +42,45 @@ export function LeaderboardDialog({ trigger }: { trigger: ReactNode }) {
                   <th className="px-3 py-2 text-left">#</th>
                   <th className="px-3 py-2 text-left">Model</th>
                   <th className="px-3 py-2 text-right">Elo</th>
+                  <th className="px-3 py-2 text-right">95% CI</th>
                   <th className="px-3 py-2 text-right">W–L–T</th>
                   <th className="px-3 py-2 text-right">Matches</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {board.map((row, i) => (
-                  <tr key={row.model} className={i === 0 ? "bg-ember/10" : ""}>
-                    <td className="px-3 py-2 font-mono text-muted-foreground">{i + 1}</td>
-                    <td className="px-3 py-2 font-mono">
-                      <span className="inline-flex items-center gap-1.5">
-                        {i === 0 && <Crown size={13} className="text-ember" />}
-                        {row.model}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono font-semibold text-ember">
-                      {row.elo}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                      {row.wins}–{row.losses}–{row.ties}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                      {row.matches}
-                    </td>
-                  </tr>
-                ))}
+                {board.map((row, i) => {
+                  const iv = ci.get(row.model);
+                  return (
+                    <tr key={row.model} className={i === 0 ? "bg-ember/10" : ""}>
+                      <td className="px-3 py-2 font-mono text-muted-foreground">{i + 1}</td>
+                      <td className="px-3 py-2 font-mono">
+                        <span className="inline-flex items-center gap-1.5">
+                          {i === 0 && <Crown size={13} className="text-ember" />}
+                          {row.model}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold text-ember">
+                        {row.elo}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                        {iv ? `${iv.lo}–${iv.hi}` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                        {row.wins}–{row.losses}–{row.ties}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                        {row.matches}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
         <p className="mt-2 text-[0.66rem] text-muted-foreground">
-          Elo starts at 1000 (K=24), updated per pairwise match in chronological order.
+          Elo starts at 1000 (K=24), updated per pairwise match in chronological order. CI = 95%
+          bootstrap interval (200 resamples of the match list) — wide means too few matches.
         </p>
       </DialogContent>
     </Dialog>

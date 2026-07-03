@@ -102,3 +102,6 @@ frontend/dist/
 *.tsbuildinfo
 .vite/
 .playwright-mcp/
+
+# Internal launch/marketing playbook (keep local)
+docs/LAUNCH.md

@@ -320,3 +320,22 @@ arenas can still produce auditable, repeatable model evaluations on their own da
 hardware. The framework is open source (MIT). The natural next step is an empirical study,
 executed with the protocol in §6, contributing private-data model-selection results that
 public arenas structurally cannot.
+
+## Addendum (v4.1): statistical rigor and bias controls
+
+Three methodology upgrades since the original report:
+
+1. **Bootstrap confidence intervals.** Every Elo figure now ships with a 95% interval,
+   computed by resampling the pairwise-match list with replacement (200 iterations),
+   re-running the Elo update per resample, and taking the 2.5th/97.5th percentiles.
+   This also absorbs Elo's order-dependence: each resample sees a different match
+   order, so the interval reflects that source of variance too. Overlapping intervals
+   mean the sample cannot separate the models — the report says so instead of implying
+   a false ranking.
+2. **Position-bias mitigation.** Candidate order (and therefore label assignment
+   A/B/C…) is now randomized independently for every judge call — in interactive
+   judging and in batch benchmarks. No model systematically occupies position "A".
+   Length bias remains unmitigated and documented as a limitation.
+3. **Pinned judge sampling.** Local judges run at temperature 0 with a fixed seed;
+   cloud judges at temperature 0. Combined with the structured-output schema, the same
+   inputs now produce the same verdict as far as each provider allows.

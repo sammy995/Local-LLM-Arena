@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-07-03
+
+### Added
+- 95% bootstrap confidence intervals and a win matrix on the Elo leaderboard and in
+  benchmark Markdown/JSON reports.
+- Judge candidate order is randomized per call (position-bias mitigation).
+- Judge sampling pinned for reproducibility (temperature 0; fixed seed for local judges).
+- Request timeout applied to all Ollama calls; in-flight generations are cancelled when
+  the client disconnects (Stop now frees the GPU).
+
+### Fixed
+- CSRF: `/api/chat`, `/api/chat/stream`, and `/api/judge` now enforce the same-origin guard.
+- Model pulls keep a task reference and log failures; deleting a missing model returns 404.
+
+### Security
+- Cloud-judge API keys are no longer persisted to localStorage — memory only.
+
 ## [4.0.0] - 2026-06-24
 
 ### 🔥 Full rewrite — FastAPI + React, comparison-first

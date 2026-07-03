@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.schemas import ChatRequest
-from app.security import require_auth
+from app.security import require_auth, same_origin
 from app.services import ollama
 from app.services.ollama import _as_messages
 
@@ -27,7 +27,7 @@ def _metrics(eval_count: int | None, eval_duration_ns: int | None, first_s: floa
     }
 
 
-@router.post("/chat", dependencies=[Depends(require_auth)])
+@router.post("/chat", dependencies=[Depends(require_auth), Depends(same_origin)])
 async def chat(req: ChatRequest) -> dict:
     messages = _as_messages(req.system, req.history, req.message)
 
@@ -59,7 +59,7 @@ async def chat(req: ChatRequest) -> dict:
     return {"results": results, "errors": errors}
 
 
-@router.post("/chat/stream", dependencies=[Depends(require_auth)])
+@router.post("/chat/stream", dependencies=[Depends(require_auth), Depends(same_origin)])
 async def chat_stream(req: ChatRequest) -> StreamingResponse:
     messages = _as_messages(req.system, req.history, req.message)
     q: asyncio.Queue = asyncio.Queue()
@@ -98,6 +98,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                     continue
                 yield json.dumps(item) + "\n"
         finally:
-            await task
+            # client gone (or stream finished): stop any still-running generations
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
