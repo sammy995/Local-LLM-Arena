@@ -1,122 +1,31 @@
 <div align="center">
 
-# ⚔️ Local LLM Arena
+# Local LLM Arena
 
-**Compare your local LLMs side by side — stream, score, and pick the best, 100% on your machine.**
+One prompt. Up to six local models. Parallel streams, blind votes, a private Elo board.
 
 [![CI](https://github.com/sammy995/Local-LLM-Arena/actions/workflows/ci.yml/badge.svg)](https://github.com/sammy995/Local-LLM-Arena/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ember.svg?color=e8843a)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
-![Ollama](https://img.shields.io/badge/Ollama-local-000000?logo=ollama&logoColor=white)
-![No Cloud](https://img.shields.io/badge/cloud-none-success)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-local-000000)
 
-<img src="docs/assets/demo-compare.gif" width="860" alt="Local LLM Arena — one prompt, models compared side by side" />
+[20s reel](brag-output/brag.mp4) · [Quick start](#run-it) · [What you get](#what-you-get) · [Technical report](docs/TECHNICAL_REPORT.md)
 
-<sub>One prompt → every model answers in parallel, with live metrics and a 👑 on the fastest.</sub>
+<img src="brag-output/brag.jpg" width="860" alt="Local LLM Arena: three local models answering one prompt, FAST crown on the winner" />
 
 </div>
 
----
+You talk to Ollama on this machine. Nothing goes to a hosted chat API unless you opt into a cloud judge and paste your own key (that key stays in RAM).
 
-<div align="center">
+<img src="docs/assets/demo-compare.gif" width="860" alt="One prompt, models streaming side by side" />
 
-**[Features](#features)** · **[Quick start](#quick-start-one-command)** · **[How it works](#how-it-works)** · **[Tech stack](#tech-stack)** · **[Development](#development)**
+## Run it
 
-</div>
-
----
-
-## What it is
-
-Local LLM Arena sends **one prompt to up to six local models at once** and shows their
-answers **side by side**, streaming in real time. Compare speed and quality, run the
-same model at different settings, and vote for the best answer **blind** — without ever
-sending a byte to the cloud.
-
-It runs entirely against a local [Ollama](https://ollama.com) instance. No API keys, no
-accounts, no telemetry. Built for prompt engineers, researchers, and anyone evaluating
-models on private or sensitive data.
-
-> Comparison is the point. A single-model chat is just an arena with one model in it.
-
-## Why not just chat?
-
-Other local UIs let you **talk to** models. Local LLM Arena is built to **evaluate** them —
-blind voting, an automated LLM judge, a private Elo leaderboard, and reproducible batch
-benchmarks. It's a Chatbot Arena you run on your own machine, on your own prompts.
-
-| Capability | **Local LLM Arena** | Open WebUI | LM Studio | Chatbot Arena (cloud) |
-| --- | :---: | :---: | :---: | :---: |
-| Runs 100% locally, data stays private | ✅ | ✅ | ✅ | ❌ cloud |
-| Side-by-side, up to 6 models in parallel | ✅ | ✅ | ❌ | ✅ (2, random) |
-| Blind evaluation + 👍/👎 vote | ✅ | ❌ | ❌ | ✅ |
-| Automated LLM-as-judge (local **or** cloud key) | ✅ | ❌ | ❌ | ❌ |
-| Private Elo leaderboard across runs | ✅ | ❌ | ❌ | ✅ (public) |
-| Batch benchmark → reproducible Elo report | ✅ | ❌ | ❌ | ❌ |
-| Per-model hyperparameter sweeps | ✅ | partial | ✅ | ❌ |
-| Open source (MIT) | ✅ | ✅ | ❌ | ✅ |
-
-## Features
-
-- **🆚 Side-by-side comparison** — one prompt → up to 6 models answering in parallel,
-  each in its own streaming card.
-- **📊 Compare metrics** — tokens/sec, time-to-first-token, and token count per model,
-  with a 👑 crown on the fastest.
-- **🎭 Blind evaluation** — hide model names (“Model A/B/C”), randomize order, vote 👍/👎,
-  then reveal the mapping and vote tally. Voting locks on reveal to keep results honest.
-- **🧑‍⚖️ Auto-judge (LLM-as-judge)** — score the answers automatically and pick a winner,
-  using a **local** model or a **cloud** model with your own API key (Anthropic, OpenRouter,
-  or any OpenAI-compatible endpoint). Answers are anonymized to the judge to avoid bias;
-  cloud judging is opt-in with a clear privacy notice (keys stay in memory only — never written
-  to disk or logs). Candidate order is randomized per call and judge sampling is pinned
-  (temperature 0), so verdicts are position-bias-mitigated and reproducible.
-- **🏆 Elo leaderboard** — a running, cross-comparison ranking of your models (an offline,
-  private Chatbot Arena), built from judge scores and 👍/👎 votes via pairwise Elo, with
-  **95% bootstrap confidence intervals** so you can tell signal from small-sample noise.
-- **🧪 Batch benchmark** — run a whole prompt set (paste or load `.txt`/`.jsonl`/`.csv`)
-  across your models, auto-judge every prompt, and aggregate a reproducible Elo report — with
-  confidence intervals and a win matrix — exportable as Markdown or JSON for sharing or publication.
-- **⚙️ Per-model hyperparameters** — temperature, top-p, top-k, repeat-penalty,
-  max-tokens, seed. Run the **same model at different settings** as separate entries.
-- **📦 Model manager** — list, pull, and delete Ollama models from the UI.
-- **📎 File attach** — drop in a text/code file; it’s read locally into your prompt.
-- **💾 Export** — download a comparison as JSON (masked while blind, full after reveal).
-- **🗂️ Sessions** — multiple saved comparisons, persisted locally.
-- **🌗 Polished UI** — distinctive dark/light theme, sanitized markdown + code
-  highlighting, tooltips on every control, keyboard-accessible.
-
-<div align="center">
-
-### 🎭 Blind evaluation in action
-
-<img src="docs/assets/demo-blind.gif" width="820" alt="Blind evaluation — vote without bias, then reveal" />
-
-<sub>Hide the names, judge on quality alone, vote, then reveal who was who.</sub>
-
-</div>
-
-<details>
-<summary>More screenshots</summary>
-
-<div align="center">
-<img src="docs/assets/screenshot-home.png" width="800" alt="Home" />
-<img src="docs/assets/screenshot-compare.png" width="800" alt="Comparison" />
-</div>
-
-</details>
-
-## Quick start (one command)
-
-**Prerequisites:** [Python 3.11+](https://python.org), [Node 20+](https://nodejs.org),
-and [Ollama](https://ollama.com) running with at least one model:
+You need [Python 3.11+](https://python.org), [Node 20+](https://nodejs.org), and [Ollama](https://ollama.com) with at least one model:
 
 ```bash
 ollama pull gemma3:1b
 ```
-
-Then, from the project root:
 
 ```powershell
 # Windows
@@ -128,91 +37,88 @@ Then, from the project root:
 ./start.sh
 ```
 
-This installs the backend (virtual env + deps) and frontend (npm + production build),
-then serves the whole app as a **single local process** at **http://127.0.0.1:7860**.
+That installs the backend and frontend, then serves both from **http://127.0.0.1:7860**.
 
-### Or with Docker
-
-Ollama runs on the host (keeping your GPU); the app runs in a container and reaches it:
+Docker (Ollama stays on the host so the GPU is still yours):
 
 ```bash
-docker compose up --build      # -> http://localhost:7860
+docker compose up --build
 ```
 
-## How it works
+## What you get
+
+- **Side-by-side streams**: one prompt, up to six models, each in its own card. Tokens/sec, time-to-first-token, token count. A FAST mark on the quickest card.
+- **Blind vote**: names hide as Model A/B/C, order shuffles, you thumb up or down, then reveal. Votes lock on reveal.
+- **LLM-as-judge**: a local model, or Anthropic / OpenRouter / any OpenAI-compatible endpoint with a key you type in. Candidates are anonymized. Order is randomized per call. Temperature is pinned at 0.
+- **Private Elo**: pairwise ranking from votes and judge scores, with 95% bootstrap confidence intervals and a win matrix.
+- **Batch benchmark**: paste or load a `.txt` / `.jsonl` / `.csv` prompt set, judge every item, export Markdown or JSON.
+- **Per-model knobs**: temperature, top-p, top-k, repeat-penalty, max-tokens, seed. Same weights at two settings count as two entries.
+- **Ollama from the UI**: list, pull, delete. Attach a local text/code file. Export the comparison as JSON (masked while blind).
+
+<details>
+<summary>Blind vote, then reveal</summary>
+
+<img src="docs/assets/demo-blind.gif" width="820" alt="Blind evaluation then reveal" />
+
+</details>
+
+<details>
+<summary>More screenshots</summary>
+
+<img src="docs/assets/screenshot-home.png" width="800" alt="Empty state" />
+<img src="docs/assets/screenshot-compare.png" width="800" alt="Comparison view" />
+
+</details>
+
+## Compared with other UIs
+
+| | This repo | Open WebUI | LM Studio | lmsys Chatbot Arena |
+| --- | :---: | :---: | :---: | :---: |
+| Local, prompts stay on the box | yes | yes | yes | no |
+| Up to 6 models in parallel | yes | yes | no | 2, random pair |
+| Blind 👍/👎 | yes | no | no | yes |
+| Local or BYO-key judge | yes | no | no | no |
+| Private Elo + CIs + win matrix | yes | no | no | public Elo |
+| Reproducible batch report | yes | no | no | no |
+| Same model, two hyperparameter rows | yes | partial | yes | no |
+| MIT | yes | yes | no | yes |
+
+Open WebUI and LM Studio are chat clients. This is an eval bench you run on your own prompts.
+
+## How the process is wired
 
 ```
-Browser (React 19 + Vite + Tailwind v4 + shadcn/ui)
-   │  fetch + NDJSON stream  (same-origin /api/*)
-   ▼
-FastAPI (async, Pydantic-validated)
-   │  ollama-python AsyncClient
-   ▼
-Ollama  ·  localhost:11434  ·  your models, your hardware
+Browser (React 19 + Vite + Tailwind v4)
+   fetch + NDJSON  /api/*
+     FastAPI
+       ollama-python AsyncClient
+         Ollama on localhost:11434
 ```
 
-- One async backend is the single source of truth. Each model streams **one
-  generation** (no double calls); all six hyperparameters flow through one code path;
-  out-of-range values are rejected with `422`, never a `500`.
-- The frontend streams each model independently, so cards fill in live and you can
-  regenerate or stop any one of them.
-- In production the SPA is built and served by FastAPI itself — one process, one URL,
-  no CORS. In development, Vite hot-reloads and proxies `/api` to the backend.
+Each model runs **one** generation (no double call). All six hyperparameters take the same path. Out-of-range values return `422`, not `500`. Production FastAPI serves the built SPA: one process, no CORS. In development Vite proxies `/api`.
 
-See [docs/adr/0001-fastapi-react.md](docs/adr/0001-fastapi-react.md) for the
-architecture decision record, and the live OpenAPI docs at `http://127.0.0.1:7860/docs`.
+Architecture: [docs/adr/0001-fastapi-react.md](docs/adr/0001-fastapi-react.md). Live OpenAPI: `http://127.0.0.1:7860/docs`.
 
-📄 **[Technical report](docs/TECHNICAL_REPORT.md)** — the evaluation methodology in
-detail: blind-vote bias controls, anonymized LLM-as-judge, the exact pairwise-Elo math,
-a reproducibility protocol, and an honest limitations section.
-
-## Tech stack
-
-| Layer | Choice |
-|------|--------|
-| Frontend | React 19, Vite 8, TypeScript, Tailwind v4, shadcn/ui + Radix, Zustand |
-| Backend | FastAPI, Pydantic, `ollama-python` (async) |
-| Inference | Ollama (local) |
-| Fonts | Bricolage Grotesque · Hanken Grotesk · JetBrains Mono (bundled offline) |
+The [technical report](docs/TECHNICAL_REPORT.md) covers blind-vote bias controls, anonymized judging, pairwise Elo, and a limitations section.
 
 ## Development
 
 ```bash
-# hot-reload dev (Vite on :5173 proxying to uvicorn on :7860)
-./scripts/dev.ps1            # Windows
+./scripts/dev.ps1            # Windows: Vite :5173, uvicorn :7860
 
-# or manually
-cd backend  && python -m venv .venv && ./.venv/Scripts/python -m pip install -e ".[dev]"
-            && uvicorn app.main:app --reload --port 7860
-cd frontend && npm install && npm run dev
+cd backend  && pytest
+cd frontend && npm test
 ```
 
-```bash
-# tests
-cd backend  && pytest          # API + hyperparameter passthrough
-cd frontend && npm test        # store/instance helpers + NDJSON stream parser
+```
+backend/    FastAPI
+frontend/   React arena
+docs/       ADR + screenshots
+brag-output/  launch reel (mp4 + poster)
 ```
 
-## Project structure
+Fonts (Bricolage Grotesque, Hanken Grotesk, JetBrains Mono) ship in the frontend bundle. History lives in `localStorage`.
 
-```
-backend/    FastAPI app — routers, services/ollama.py, schemas, tests
-frontend/   React app — components/arena, store/arena.ts, lib (api, sse), styles
-docs/       ADR, assets (screenshots)
-start.ps1 · start.sh   one-command install & run
-```
+## License
 
-## Privacy
-
-Everything runs locally. There are **no external network calls** — models run through
-Ollama on your hardware, fonts are bundled, and conversation history lives only in your
-browser’s local storage. Nothing is uploaded, logged remotely, or sent for training.
-
-## Credits & License
-
-Built on Ollama, FastAPI, React, Tailwind, shadcn/ui, Radix, and Uiverse-style
-components — see [CREDITS.md](CREDITS.md). Licensed under the [MIT License](LICENSE).
-
-> Uses [Ollama](https://ollama.com) (© Ollama, Inc.), a separate product with its own license.
-
-<div align="center"><sub>Made for privacy-conscious AI practitioners.</sub></div>
+[MIT](LICENSE). Credits in [CREDITS.md](CREDITS.md). Ollama is a separate product with its own license.
