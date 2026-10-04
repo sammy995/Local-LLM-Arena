@@ -9,9 +9,9 @@ One prompt. Up to six local models. Parallel streams, blind votes, a private Elo
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-local-000000)
 
-[20s reel](brag-output/brag.mp4) · [Quick start](#run-it) · [What you get](#what-you-get) · [Technical report](docs/TECHNICAL_REPORT.md)
+[Quick start](#run-it) · [What you get](#what-you-get) · [Technical report](docs/TECHNICAL_REPORT.md) · [mp4 with sound](https://github.com/sammy995/Local-LLM-Arena/blob/main/brag-output/brag.mp4)
 
-<img src="brag-output/brag.jpg" width="860" alt="Local LLM Arena: three local models answering one prompt, FAST crown on the winner" />
+![Same prompt, three local models side by side](brag-output/brag.gif)
 
 </div>
 
@@ -114,7 +114,7 @@ cd frontend && npm test
 backend/    FastAPI
 frontend/   React arena
 docs/       ADR + screenshots
-brag-output/  launch reel (mp4 + poster)
+brag-output/  README GIF plus mp4 with sound
 ```
 
 Fonts (Bricolage Grotesque, Hanken Grotesk, JetBrains Mono) ship in the frontend bundle. History lives in `localStorage`.
