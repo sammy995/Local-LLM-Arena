@@ -1,4 +1,5 @@
 import type { JudgeConfig, Session } from "@/store/arena";
+import { createResultSet, type EvalSuite, type Result, type ResultSet } from "evalport-sdk";
 
 import { chatOnce, judge } from "./api";
 import {
@@ -200,4 +201,110 @@ export function benchToJSON(result: BenchResult, meta: Record<string, unknown>):
     null,
     2,
   );
+}
+
+/** Arena judge scores are 0–10. EvalPort GraderResult.score must be in [0, 1]. */
+export function arenaScoreToEvalPort(score: number): number {
+  if (!Number.isFinite(score)) return 0;
+  if (score >= 0 && score <= 1) return score;
+  return Math.min(1, Math.max(0, score / 10));
+}
+
+/**
+ * One EvalPort suite plus one ResultSet per arena instance.
+ * Native Markdown/JSON exports stay; this is the portable interop document.
+ */
+export function benchToEvalPort(
+  result: BenchResult,
+  instances: ModelInstance[],
+  suiteId = "local-llm-arena-bench",
+  judgeModel = "arena-judge",
+): { suite: EvalSuite; resultSets: ResultSet[] } {
+  const suite: EvalSuite = {
+    version: "1.0.0-rc.5",
+    id: suiteId,
+    name: "Local LLM Arena benchmark",
+    graders: [
+      {
+        id: "arena-judge",
+        type: "llm_judge",
+        params: {
+          model: judgeModel,
+          prompt:
+            "Score the candidate {output} for user prompt {input} on quality versus the other arena models.",
+        },
+      },
+    ],
+    test_cases: result.perPrompt.map((p, i) => ({
+      id: `p${i}`,
+      input: p.prompt,
+      graders: ["arena-judge"],
+    })),
+    metadata: { app: "Local LLM Arena", kind: "benchmark" },
+  };
+
+  const resultSets = instances.map((inst) => {
+    const results: Result[] = result.perPrompt.map((p, i) => {
+      const ans = p.answers[inst.id];
+      const label = p.mapping
+        ? Object.keys(p.mapping).find((l) => p.mapping![l] === inst.id)
+        : undefined;
+      const verdict = label && p.verdicts?.find((v) => v.label === label);
+      const won = Boolean(label && p.winner && label === p.winner);
+      return {
+        test_case_id: `p${i}`,
+        actual_output: ans?.text ?? "",
+        passed: Boolean(!ans?.error && won),
+        error: ans?.error
+          ? { type: "provider_error" as const, message: ans.error }
+          : undefined,
+        grader_results: verdict
+          ? [
+              {
+                grader_id: "arena-judge",
+                type: "llm_judge",
+                score: arenaScoreToEvalPort(verdict.score),
+                passed: won,
+                reason: verdict.reason,
+                metadata: { arena_score_0_10: verdict.score },
+              },
+            ]
+          : [],
+      };
+    });
+    const hp = {
+      temperature: inst.temperature,
+      top_p: inst.top_p,
+      top_k: inst.top_k,
+      repeat_penalty: inst.repeat_penalty,
+      num_predict: inst.num_predict,
+      seed: inst.seed,
+    };
+    return createResultSet(
+      {
+        ...suite,
+        config: {
+          provider: {
+            model: inst.model,
+            extra: hp,
+          },
+        },
+      },
+      results,
+      inst.id,
+      "local-llm-arena",
+      "4.1.0",
+    );
+  });
+
+  return { suite, resultSets };
+}
+
+export function benchToEvalPortJSON(
+  result: BenchResult,
+  instances: ModelInstance[],
+  suiteId?: string,
+  judgeModel?: string,
+): string {
+  return JSON.stringify(benchToEvalPort(result, instances, suiteId, judgeModel), null, 2);
 }

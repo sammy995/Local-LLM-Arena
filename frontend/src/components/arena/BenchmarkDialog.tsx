@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  benchToEvalPortJSON,
   benchToJSON,
   benchToMarkdown,
   runBenchmark,
@@ -190,6 +191,20 @@ export function BenchmarkDialog({ trigger }: { trigger: ReactNode }) {
                   }
                 >
                   <Download size={13} /> .json
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() =>
+                    download(
+                      "benchmark.evalport.json",
+                      benchToEvalPortJSON(result, sess.instances, undefined, cfg.model || undefined),
+                      "application/json",
+                    )
+                  }
+                >
+                  <Download size={13} /> EvalPort
                 </Button>
               </div>
             </div>

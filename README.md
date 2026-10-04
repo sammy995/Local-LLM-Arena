@@ -51,7 +51,7 @@ docker compose up --build
 - **Blind vote**: names hide as Model A/B/C, order shuffles, you thumb up or down, then reveal. Votes lock on reveal.
 - **LLM-as-judge**: a local model, or Anthropic / OpenRouter / any OpenAI-compatible endpoint with a key you type in. Candidates are anonymized. Order is randomized per call. Temperature is pinned at 0.
 - **Private Elo**: pairwise ranking from votes and judge scores, with 95% bootstrap confidence intervals and a win matrix.
-- **Batch benchmark**: paste or load a `.txt` / `.jsonl` / `.csv` prompt set, judge every item, export Markdown or JSON.
+- **Batch benchmark**: paste or load a `.txt` / `.jsonl` / `.csv` prompt set, judge every item, export Markdown, native JSON, or [EvalPort](https://github.com/adhabnr-ux/evalport) ResultSets.
 - **Per-model knobs**: temperature, top-p, top-k, repeat-penalty, max-tokens, seed. Same weights at two settings count as two entries.
 - **Ollama from the UI**: list, pull, delete. Attach a local text/code file. Export the comparison as JSON (masked while blind).
 
