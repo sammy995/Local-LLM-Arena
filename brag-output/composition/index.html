@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Bricolage Grotesque";
+        src: url("fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+        font-weight: 200 800;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Hanken Grotesk";
+        src: url("fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: block;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: oklch(0.178 0.008 65);
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: oklch(0.178 0.008 65);
+        color: oklch(0.922 0.008 80);
+        font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+      }
+      #stage {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 80% 60% at 18% 12%, oklch(0.74 0.19 55 / 0.14), transparent 55%),
+          radial-gradient(ellipse 50% 40% at 88% 78%, oklch(0.3 0.02 60 / 0.5), transparent 60%),
+          oklch(0.178 0.008 65);
+      }
+      #ghost {
+        position: absolute;
+        left: 48px;
+        top: 120px;
+        font-family: "Bricolage Grotesque", ui-sans-serif, sans-serif;
+        font-size: 220px;
+        font-weight: 800;
+        letter-spacing: -0.06em;
+        color: oklch(0.922 0.008 80 / 0.045);
+        line-height: 0.85;
+        user-select: none;
+      }
+      #ember-glow {
+        position: absolute;
+        width: 480px;
+        height: 480px;
+        left: 120px;
+        top: 80px;
+        border-radius: 50%;
+        background: oklch(0.74 0.19 55 / 0.16);
+        filter: blur(80px);
+      }
+      .clip.scene {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 96px 120px;
+      }
+      .stack {
+        width: 1680px;
+      }
+      .kicker {
+        font-family: ui-monospace, "Hanken Grotesk", sans-serif;
+        font-size: 24px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: oklch(0.78 0.16 55);
+        margin-bottom: 18px;
+        font-weight: 700;
+      }
+      h1,
+      h2 {
+        font-family: "Bricolage Grotesque", ui-sans-serif, sans-serif;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 0.98;
+        color: oklch(0.922 0.008 80);
+      }
+      #hook-line {
+        font-size: 88px;
+        max-width: 1400px;
+      }
+      #product-name {
+        font-size: 92px;
+      }
+      #empty-headline {
+        font-size: 64px;
+        max-width: 1400px;
+      }
+      .body {
+        margin-top: 22px;
+        font-size: 28px;
+        line-height: 1.35;
+        color: oklch(0.86 0.012 80);
+        max-width: 920px;
+      }
+      .chips {
+        display: flex;
+        gap: 14px;
+        margin-top: 36px;
+      }
+      .chip {
+        border: 1px solid oklch(0.3 0.012 65);
+        background: oklch(0.215 0.009 65);
+        color: oklch(0.922 0.008 80);
+        border-radius: 999px;
+        padding: 10px 18px;
+        font-size: 20px;
+        font-family: ui-monospace, "Hanken Grotesk", sans-serif;
+      }
+      .arena {
+        width: 1680px;
+      }
+      .prompt {
+        margin-left: auto;
+        max-width: 720px;
+        background: oklch(0.74 0.19 55 / 0.16);
+        color: oklch(0.922 0.008 80);
+        border-radius: 22px 22px 6px 22px;
+        padding: 16px 22px;
+        font-size: 26px;
+        margin-bottom: 28px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 22px;
+      }
+      .card {
+        background: oklch(0.215 0.009 65);
+        border: 1px solid oklch(0.3 0.012 65);
+        border-radius: 16px;
+        padding: 22px 24px 26px;
+        min-height: 420px;
+        position: relative;
+      }
+      .card-name {
+        font-family: ui-monospace, "Hanken Grotesk", sans-serif;
+        font-size: 18px;
+        color: oklch(0.86 0.012 80);
+        margin-bottom: 14px;
+      }
+      .card-body {
+        font-size: 24px;
+        line-height: 1.4;
+        color: oklch(0.922 0.008 80);
+      }
+      .fast {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: oklch(0.74 0.19 55);
+        color: oklch(0.17 0.02 60);
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        padding: 7px 12px;
+        border-radius: 6px;
+        font-family: "Bricolage Grotesque", sans-serif;
+      }
+      #lock-line {
+        font-size: 72px;
+      }
+      #wordmark {
+        font-size: 80px;
+        margin-top: 18px;
+      }
+      #lock-kicker {
+        font-size: 28px;
+        color: oklch(0.86 0.012 80);
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-duration="20" data-fps="30">
+      <div id="stage">
+        <div id="ember-glow" data-layout-ignore="true"></div>
+        <div id="ghost" data-layout-ignore="true" aria-hidden="true">ARENA</div>
+      </div>
+
+      <div id="scene-hook" class="clip scene" data-start="0" data-duration="3.27" data-track-index="1">
+        <div class="stack">
+          <p class="kicker">Local eval</p>
+          <h1 id="hook-line">Chat UIs talk to one model.</h1>
+        </div>
+      </div>
+
+      <div id="scene-name" class="clip scene" data-start="3.27" data-duration="3.82" data-track-index="1">
+        <div class="stack">
+          <p class="kicker" id="empty-kicker">Compare, score, choose</p>
+          <h2 id="product-name">Local LLM Arena</h2>
+          <h2 id="empty-headline">Compare local models on one prompt</h2>
+          <p class="body" id="empty-body">One prompt, up to six models at once. Watch them answer in parallel.</p>
+          <div class="chips" id="chips">
+            <span class="chip">1 · add 2+ models</span>
+            <span class="chip">2 · ask one question</span>
+            <span class="chip">3 · compare &amp; vote</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="scene-arena" class="clip scene" data-start="7.09" data-duration="8.2" data-track-index="1">
+        <div class="arena">
+          <div class="prompt" id="prompt">Summarize this PR.</div>
+          <div class="grid">
+            <article class="card" id="card-a">
+              <p class="card-name">gemma3:12b</p>
+              <span class="fast" id="fast-badge">FAST</span>
+              <p class="card-body">Three files. Auth path now fails closed. Tests cover the abort case.</p>
+            </article>
+            <article class="card" id="card-b">
+              <p class="card-name">llama3.1:8b</p>
+              <p class="card-body">Diff tightens error handling. Clipboard copy is wrapped. Health checks `r.ok`.</p>
+            </article>
+            <article class="card" id="card-c">
+              <p class="card-name">qwen2.5:7b</p>
+              <p class="card-body">Same prompt. Different voice. You pick on quality, not the logo.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div id="scene-lock" class="clip scene" data-start="15.29" data-duration="4.71" data-track-index="1">
+        <div class="stack">
+          <h2 id="lock-line">100% on your machine.</h2>
+          <h2 id="wordmark">Local LLM Arena</h2>
+          <p id="lock-kicker">Compare. Score. Choose.</p>
+        </div>
+      </div>
+
+      <audio
+        id="music"
+        src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"
+        data-start="0"
+        data-duration="20"
+        data-volume="0.12"
+        data-track-index="0"
+      ></audio>
+      <audio
+        id="sfx-click"
+        src="assets/sfx/interface/click_003.ogg"
+        data-start="3.27"
+        data-volume="0.35"
+        data-track-index="2"
+      ></audio>
+      <audio
+        id="sfx-drop"
+        src="assets/sfx/interface/drop_002.ogg"
+        data-start="8.74"
+        data-volume="0.32"
+        data-track-index="3"
+      ></audio>
+      <audio
+        id="sfx-bong"
+        src="assets/sfx/interface/bong_001.ogg"
+        data-start="13.11"
+        data-volume="0.28"
+        data-track-index="4"
+      ></audio>
+      <audio
+        id="sfx-soft"
+        src="assets/sfx/impact/impactSoft_heavy_000.ogg"
+        data-start="17.47"
+        data-volume="0.3"
+        data-track-index="5"
+      ></audio>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo("#ember-glow", { opacity: 0.4 }, { opacity: 0.85, duration: 20, ease: "none" }, 0);
+
+      tl.fromTo("#hook-line", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 0.56);
+      tl.fromTo("#scene-hook .kicker", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 0.4);
+      tl.to("#hook-line", { opacity: 0, y: -10, duration: 0.22, ease: "power1.in" }, 3.05);
+
+      tl.fromTo("#product-name", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 3.27);
+      tl.fromTo("#empty-kicker", { opacity: 0 }, { opacity: 1, duration: 0.35 }, 3.4);
+      tl.fromTo("#empty-headline", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 4.91);
+      tl.fromTo("#empty-body", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 5.34);
+      tl.fromTo("#chips", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 6.0);
+
+      tl.fromTo("#prompt", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 7.09);
+      tl.fromTo("#card-a", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 8.74);
+      tl.fromTo("#card-b", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 9.83);
+      tl.fromTo("#card-c", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 10.93);
+      tl.fromTo("#fast-badge", { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, 13.11);
+
+      tl.fromTo("#lock-line", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 15.4);
+      tl.fromTo("#wordmark", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 17.47);
+      tl.fromTo("#lock-kicker", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 18.02);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

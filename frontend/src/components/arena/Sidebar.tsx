@@ -45,13 +45,14 @@ export function Sidebar({ open }: { open: boolean }) {
               >
                 {s.title || "Untitled"}
                 <span className="ml-1 font-mono text-[0.6rem] text-muted-foreground">
-                  {s.instances.length}🤖
+                  {s.instances.length}
                 </span>
               </button>
               <Tip content="Delete comparison">
                 <button
                   onClick={() => deleteSession(s.id)}
-                  className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                  aria-label={`Delete ${s.title || "comparison"}`}
+                  className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <Trash2 size={13} />
                 </button>

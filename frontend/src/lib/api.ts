@@ -23,7 +23,9 @@ export async function listModels(): Promise<ModelInfo[]> {
 }
 
 export async function health(): Promise<{ status: string; ollama_reachable: boolean }> {
-  return (await fetch("/api/health")).json();
+  const r = await fetch("/api/health");
+  if (!r.ok) throw new Error(`GET /api/health -> ${r.status}`);
+  return r.json();
 }
 
 // Returns the raw streaming Response; pass to readNdjson() in sse.ts.

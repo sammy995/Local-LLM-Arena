@@ -28,30 +28,45 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={250}>
       <div className="flex h-dvh overflow-hidden">
+        <a
+          href="#prompt"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm"
+        >
+          Skip to prompt
+        </a>
         <Sidebar open={sidebar} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Header */}
           <header className="z-20 flex items-center justify-between border-b border-border/70 bg-background/80 px-4 py-2.5 backdrop-blur-md">
             <div className="flex items-center gap-2.5">
               <Tip content={sidebar ? "Hide comparisons" : "Show comparisons"}>
-                <Button variant="ghost" size="icon" onClick={() => setSidebar((v) => !v)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={sidebar ? "Hide comparisons" : "Show comparisons"}
+                  aria-expanded={sidebar}
+                  onClick={() => setSidebar((v) => !v)}
+                >
                   <PanelLeft size={17} />
                 </Button>
               </Tip>
-              <span className="text-ember">
+              <span className="text-ember" aria-hidden>
                 <AnvilMark size={28} />
               </span>
               <div className="leading-tight">
                 <h1 className="font-display text-base font-extrabold tracking-tight">
-                  LOCAL&nbsp;LLM&nbsp;ARENA
+                  Local LLM Arena
                 </h1>
                 <p className="hidden text-[0.68rem] text-muted-foreground sm:block">
                   Side-by-side local model comparison
                 </p>
               </div>
               <Tip content={online ? "Ollama is running" : "Ollama not reachable on :11434"}>
-                <span className="ml-1 inline-flex cursor-help items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[0.66rem]">
+                <span
+                  className="ml-1 inline-flex cursor-help items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[0.66rem]"
+                  role="status"
+                  aria-live="polite"
+                >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
                       online == null

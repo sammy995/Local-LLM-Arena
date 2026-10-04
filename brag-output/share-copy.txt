@@ -1,0 +1,5 @@
+Compare local models on one prompt — gemma, llama, qwen, side by side, 100% on your machine.
+
+Local LLM Arena: add models, ask once, vote, and keep the FAST crown honest.
+
+github.com/sammy995/LocalLLMArena

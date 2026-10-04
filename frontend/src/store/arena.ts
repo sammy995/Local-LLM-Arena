@@ -198,13 +198,20 @@ export const useArena = create<ArenaState>()(
                 patchResponse(turnId, inst.id, (r) => ({ ...r, streaming: false, error: e.error }));
             }),
           )
-          .catch((err: unknown) =>
+          .catch((err: unknown) => {
+            const aborted =
+              (err instanceof DOMException && err.name === "AbortError") ||
+              (err instanceof Error && err.name === "AbortError");
+            if (aborted) {
+              patchResponse(turnId, inst.id, (r) => ({ ...r, streaming: false }));
+              return;
+            }
             patchResponse(turnId, inst.id, (r) => ({
               ...r,
               streaming: false,
               error: r.text ? undefined : String((err as Error)?.message ?? err),
-            })),
-          )
+            }));
+          })
           .finally(() => controllers.delete(ckey(turnId, inst.id)));
       };
 

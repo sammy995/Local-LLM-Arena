@@ -13,13 +13,9 @@ function EmptyState({ count }: { count: number }) {
   return (
     <section className="relative flex flex-1 flex-col items-center justify-center py-16 text-center">
       <HeroBackdrop />
-      <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-ember">
-        compare · score · choose
-      </p>
+      <p className="mb-3 font-mono text-xs text-ember">Compare, score, choose</p>
       <h2 className="max-w-2xl font-display text-4xl font-extrabold leading-[1.05] sm:text-5xl">
-        Compare your local LLMs,
-        <br />
-        <span className="text-ember">side by side</span>.
+        Compare local models on one prompt
       </h2>
       <p className="mt-4 max-w-md text-balance text-sm text-muted-foreground">
         One prompt, up to six models at once. Watch them answer in parallel, compare

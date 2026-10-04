@@ -1,4 +1,4 @@
-import { Eraser, Eye, FileDown, Paperclip, Settings2, SlidersHorizontal, Square, X } from "lucide-react";
+import { Eraser, Eye, FileDown, FileText, Paperclip, Settings2, SlidersHorizontal, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,7 @@ function ModelChip({ inst }: { inst: ModelInstance }) {
       <Tip content="Remove from arena">
         <button
           onClick={() => removeInstance(inst.id)}
+          aria-label={`Remove ${inst.model}`}
           className="border-l border-ember/30 px-1.5 py-1.5 transition-colors hover:bg-ember/20"
         >
           <X size={12} />
@@ -141,7 +142,15 @@ export function ControlDock() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    listModels().then(setModels).catch(() => setModels([]));
+    const load = () => listModels().then(setModels).catch(() => setModels([]));
+    load();
+    const t = window.setInterval(load, 15000);
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   const streaming = sess.turns.some((t) =>
@@ -166,7 +175,7 @@ export function ControlDock() {
       <div className="mx-auto w-full max-w-6xl px-4 py-3">
         {models.length === 0 && (
           <p className="mb-2 rounded-md border border-border bg-card px-3 py-1.5 text-center text-xs text-muted-foreground">
-            No models installed yet — open <span className="font-semibold">📦 Models</span> (top
+            No models installed yet — open <span className="font-semibold">Models</span> (top
             right) to download one, e.g. <span className="font-mono">gemma3:1b</span>.
           </p>
         )}
@@ -174,6 +183,7 @@ export function ControlDock() {
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <Tip content="Add a model with default settings">
             <select
+              aria-label="Add a model"
               className="h-8 rounded-md border border-input bg-card px-2 font-mono text-xs"
               value=""
               onChange={(e) => {
@@ -222,7 +232,7 @@ export function ControlDock() {
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <details className="group">
             <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-md border border-border bg-card px-2 py-1 font-mono text-[0.7rem] text-muted-foreground transition-colors hover:bg-accent">
-              📝 system prompt
+              <FileText size={12} /> system prompt
             </summary>
             <textarea
               value={sess.system}
@@ -268,22 +278,27 @@ export function ControlDock() {
             onChange={(e) => pickFile(e.target.files?.[0])}
           />
           <Tip content="Attach a text/code file — its contents are read locally and added to your prompt">
-            <Button variant="ghost" size="icon" onClick={() => fileRef.current?.click()}>
+            <Button variant="ghost" size="icon" aria-label="Attach a text file" onClick={() => fileRef.current?.click()}>
               <Paperclip size={16} />
             </Button>
           </Tip>
           <div className="flex flex-1 flex-col gap-1">
             {file && (
               <span className="inline-flex w-fit items-center gap-1 rounded bg-ember/10 px-1.5 py-0.5 font-mono text-[0.66rem] text-ember">
-                📎 {file.name}
+                {file.name}
                 <button onClick={() => setFile(null)} aria-label="remove file">
                   <X size={11} />
                 </button>
               </span>
             )}
             <textarea
+              id="prompt"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.currentTarget.style.height = "auto";
+                e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 160)}px`;
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -296,7 +311,7 @@ export function ControlDock() {
                   ? "Ask all models one question… (Enter to send, Shift+Enter for newline)"
                   : "Add a model above to start comparing…"
               }
-              className="max-h-40 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+              className="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
           {streaming ? (

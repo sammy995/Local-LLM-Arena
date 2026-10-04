@@ -32,13 +32,17 @@ export function ArenaCard({
   const m = response.metrics;
 
   const copy = async () => {
-    await navigator.clipboard.writeText(response.text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(response.text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
-    <article className="flex flex-col rounded-xl border border-border bg-card shadow-[0_8px_30px_-20px_rgba(0,0,0,0.7)]">
+    <article className="flex flex-col rounded-xl border border-border bg-card">
       {/* header: identity + compare metrics */}
       <header className="flex items-center justify-between gap-2 border-b border-border/60 px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -107,6 +111,7 @@ export function ArenaCard({
                 <button
                   onClick={() => onVote(1)}
                   disabled={revealed}
+                  aria-pressed={response.vote === 1}
                   aria-label="Vote best answer"
                   className={`rounded p-1 transition-colors hover:bg-accent disabled:opacity-40 ${
                     response.vote === 1 ? "text-[var(--success)]" : "text-muted-foreground"
@@ -119,6 +124,7 @@ export function ArenaCard({
                 <button
                   onClick={() => onVote(-1)}
                   disabled={revealed}
+                  aria-pressed={response.vote === -1}
                   aria-label="Vote weak answer"
                   className={`rounded p-1 transition-colors hover:bg-accent disabled:opacity-40 ${
                     response.vote === -1 ? "text-destructive" : "text-muted-foreground"
