@@ -140,7 +140,7 @@ async def judge(req: JudgeRequest) -> JudgeResult:
         result = JudgeResult.model_validate(_coerce(json.loads(raw)))
     except ValueError as e:  # missing API key etc. — safe, user-actionable message
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         # Full error (may carry provider URLs / internals) goes to the server log only;
         # the client gets a generic message so nothing sensitive leaks over the wire.
         logger.exception("judge failed (provider=%s, model=%s)", req.provider, req.judge_model)

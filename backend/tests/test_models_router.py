@@ -27,7 +27,7 @@ async def test_failed_pull_is_tracked_and_cleaned_up(monkeypatch):
 @pytest.mark.asyncio
 async def test_delete_missing_model_is_404(monkeypatch):
     async def missing(name):
-        raise Exception(f"model '{name}' not found")
+        raise RuntimeError(f"model '{name}' not found")
 
     monkeypatch.setattr(ollama, "delete", missing)
     transport = httpx.ASGITransport(app=app)

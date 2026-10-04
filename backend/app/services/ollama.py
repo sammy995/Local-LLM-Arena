@@ -36,9 +36,8 @@ def _as_messages(system: str, history: list[Message], message: str) -> list[dict
     msgs = [m.model_dump() for m in history]
     if not msgs or msgs[0].get("role") != "system":
         msgs = [{"role": "system", "content": system}, *msgs]
-    if message:
-        if not (msgs and msgs[-1]["role"] == "user" and msgs[-1]["content"] == message):
-            msgs.append({"role": "user", "content": message})
+    if message and not (msgs and msgs[-1]["role"] == "user" and msgs[-1]["content"] == message):
+        msgs.append({"role": "user", "content": message})
     if len(msgs) > settings.history_limit:
         msgs = [msgs[0], *msgs[-(settings.history_limit - 1):]]
     return msgs
@@ -111,5 +110,5 @@ async def reachable() -> bool:
     try:
         await _client.list()
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 — list() can fail as connect, timeout, or ResponseError
         return False

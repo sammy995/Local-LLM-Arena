@@ -54,6 +54,6 @@ async def delete_model(name: str) -> dict:
     try:
         await ollama.delete(name)
         return {"status": "deleted", "model": name}
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         status = 404 if "not found" in str(e).lower() else 502
         raise HTTPException(status_code=status, detail=str(e)) from e

@@ -1,122 +1,28 @@
-# Security Considerations
+# Security Policy
 
-## Overview
+## Reporting a vulnerability
 
-Ollama Arena is designed for **personal, local-first evaluation workflows** in trusted environments. It is NOT designed for multi-tenant production deployments or handling highly sensitive data without additional hardening.
+Do not open a public GitHub issue with exploit details.
 
-## Current Security Model
+- Prefer GitHub [private vulnerability reporting](https://github.com/sammy995/Local-LLM-Arena/security/advisories/new)
+- If that form is unavailable, open an issue titled **Security — contact request** with no details. A maintainer will reply with a private channel.
 
-### ✅ What's Protected
+Include: what is wrong, how to reproduce it, which commit or version, and any mitigation you already tried.
 
-- **No cloud exposure**: Server binds to `127.0.0.1` by default (localhost only)
-- **No telemetry**: Zero external API calls, no tracking, no analytics
-- **Data sovereignty**: All data stays on user's machine unless explicitly exported
-- **Optional authentication**: Set `WEB_CHAT_TOKEN` environment variable for bearer token protection
+We aim to acknowledge reports within a few days.
 
-### ⚠️ Known Limitations
+## What this app is
 
-#### 1. Input Sanitization
-- **Risk**: User prompts not sanitized before rendering
-- **Impact**: Potential XSS if malicious content in model responses
-- **Mitigation**: Markdown renderer escapes HTML, but not foolproof
-- **Status**: Low priority for single-user local deployment
+Local LLM Arena is a single-user eval bench. It talks to Ollama on this machine and serves the UI from FastAPI on `127.0.0.1:7860` by default. Prompts stay local unless you opt into a cloud judge and paste a key.
 
-#### 2. Rate Limiting
-- **Risk**: No rate limiting on `/api/chat` or `/api/stream_chat` endpoints
-- **Impact**: Local DoS possible (flood with requests)
-- **Mitigation**: Single-user deployment reduces risk
-- **Status**: Consider adding for production deployments
+## Threat model (honest)
 
-#### 3. File Upload Validation
-- **Risk**: File upload accepts any file type
-- **Impact**: Users could upload binary files, large files (>10MB limit exists)
-- **Mitigation**: Client-side file reading only, no server-side storage
-- **Status**: Low risk, consider restricting to `.txt`, `.md`, `.json`
+- Optional bearer auth: set `ARENA_AUTH_TOKEN` (not `WEB_CHAT_TOKEN`). Empty means the API is open on the bind address.
+- State-changing routes (`/api/chat`, `/api/chat/stream`, `/api/judge`, model pull/delete) check `Origin` so a random website cannot drive your local Ollama.
+- History lives in browser `localStorage`, unencrypted. Anyone with this browser profile can read it.
+- Cloud-judge keys typed in the UI stay in RAM for that session. Keys in `.env` (`ARENA_ANTHROPIC_API_KEY`, `ARENA_OPENAI_API_KEY`, `ARENA_OPENROUTER_API_KEY`) never belong in git.
+- There is no multi-user login, no encryption at rest, and no rate limit. Do not put this on the public internet without a reverse proxy, TLS, and auth you actually trust.
 
-#### 4. localStorage Security
-- **Risk**: Conversations stored unencrypted in browser localStorage
-- **Impact**: Anyone with browser access can read all chat history
-- **Mitigation**: localStorage is designed for non-sensitive, personal use
-- **Status**: **By design** for simplicity; see "Scope" below
+## Supported versions
 
-#### 5. Authentication Token Storage
-- **Risk**: `WEB_CHAT_TOKEN` stored in environment variables (plaintext)
-- **Impact**: Token visible to anyone with shell access
-- **Mitigation**: Use OS keychain or secrets manager for production
-- **Status**: Acceptable for local development
-
-#### 6. CORS and CSRF
-- **Risk**: No CORS restrictions, no CSRF tokens
-- **Impact**: Other localhost apps could make requests
-- **Mitigation**: Requires malicious local app, low risk
-- **Status**: Low priority for trusted local environment
-
-## Scope & Intended Use
-
-### ✅ Appropriate Use Cases
-- **Personal research**: Individual researchers evaluating models on their laptop
-- **Proof of concept**: Testing Ollama integration before production deployment
-- **Educational**: Learning about local LLM orchestration
-- **Exploratory analysis**: Comparing models on non-sensitive datasets
-
-### ❌ Inappropriate Use Cases (Without Hardening)
-- **Multi-user production**: Requires user authentication, session management, backend DB
-- **Regulated data**: HIPAA/SOX/GDPR compliance requires encryption at rest, audit logs
-- **Public deployment**: Exposing to internet requires reverse proxy, rate limiting, WAF
-- **Shared workstations**: localStorage is per-browser, no isolation between OS users
-
-## Hardening for Production
-
-If you need to deploy Ollama Arena in a production or shared environment, consider:
-
-### Authentication & Authorization
-- [ ] Replace bearer token with proper user authentication (Flask-Login, OAuth)
-- [ ] Add session management with secure cookies (HttpOnly, SameSite=Strict)
-- [ ] Implement role-based access control (admin, user, viewer)
-
-### Data Protection
-- [ ] Move from localStorage to backend database (SQLite, PostgreSQL)
-- [ ] Encrypt sensitive data at rest (SQLCipher, application-level encryption)
-- [ ] Add audit logging (who accessed what, when)
-
-### Network Security
-- [ ] Deploy behind reverse proxy (nginx, Caddy) with HTTPS
-- [ ] Add rate limiting (flask-limiter, nginx limit_req)
-- [ ] Implement CORS restrictions for API endpoints
-- [ ] Add CSRF protection for state-changing operations
-
-### Input Validation
-- [ ] Sanitize user prompts before rendering (DOMPurify on client-side)
-- [ ] Validate file uploads (MIME type, size, content)
-- [ ] Add Content Security Policy (CSP) headers
-
-### Monitoring & Incident Response
-- [ ] Set up logging aggregation (Elasticsearch, Splunk)
-- [ ] Monitor for anomalous usage patterns
-- [ ] Define incident response procedures
-- [ ] Regular security audits and penetration testing
-
-## Reporting Security Issues
-
-If you discover a security vulnerability, please:
-
-1. **Do NOT open a public GitHub issue**
-2. Email the maintainer directly: [your-email@example.com]
-3. Include:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Suggested fix (if any)
-
-We will respond within 72 hours and coordinate a fix timeline.
-
-## Security Update Policy
-
-- **Critical vulnerabilities**: Patched within 7 days, immediate release
-- **High severity**: Patched within 30 days
-- **Medium/Low severity**: Included in next minor version
-
----
-
-**Last updated**: January 2026  
-**Security point of contact**: [Maintainer Name]
+Security fixes land on `main`. Older tags are not maintained.

@@ -1,6 +1,6 @@
-# Contributing to Ollama Arena
+# Contributing to Local LLM Arena
 
-Thank you for your interest in contributing to Ollama Arena! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Local LLM Arena! This document provides guidelines and instructions for contributing.
 
 ## 📋 Table of Contents
 
@@ -25,15 +25,15 @@ Thank you for your interest in contributing to Ollama Arena! This document provi
 > **Note**: This project uses [Ollama](https://ollama.ai) (© Ollama, Inc.) as the inference engine. Ensure you have Ollama installed and running locally.
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/ollama-arena.git`
-3. Add upstream remote: `git remote add upstream https://github.com/ORIGINAL/ollama-arena.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/Local-LLM-Arena.git`
+3. Add upstream remote: `git remote add upstream https://github.com/sammy995/Local-LLM-Arena.git`
 4. Create a branch: `git checkout -b feature/amazing-feature`
 
 ## 💻 Development Setup
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - Ollama CLI installed
 - Git for version control
 
@@ -41,8 +41,8 @@ Thank you for your interest in contributing to Ollama Arena! This document provi
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/ollama-arena.git
-cd ollama-arena
+git clone https://github.com/sammy995/Local-LLM-Arena.git
+cd Local-LLM-Arena
 
 # Create virtual environment
 python -m venv .venv
@@ -80,7 +80,7 @@ python run.py
 
 ### Finding Issues
 
-- Check [Issues](https://github.com/yourusername/ollama-arena/issues) page
+- Check [Issues](https://github.com/sammy995/Local-LLM-Arena/issues) page
 - Look for `good first issue` or `help wanted` labels
 - Ask in discussions if you're unsure where to start
 
@@ -364,7 +364,7 @@ Contributors will be:
 
 ## ❓ Questions?
 
-- Open a [Discussion](https://github.com/yourusername/ollama-arena/discussions)
+- Open a [Discussion](https://github.com/sammy995/Local-LLM-Arena/discussions)
 - Ask in existing issues
 - Contact maintainers
 
@@ -374,4 +374,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-**Thank you for contributing to Ollama Arena!** 🎉
+**Thank you for contributing to Local LLM Arena!** 🎉
